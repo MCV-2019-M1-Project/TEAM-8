@@ -9,6 +9,9 @@ flake8 = "*"
 
 [packages]
 numpy = "*"
+opencv-python = "*"
+scipy = "*"
+ml-metrics = "*"
 
 [requires]
 python_version = "3.7"
