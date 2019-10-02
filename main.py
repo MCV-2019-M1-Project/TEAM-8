@@ -1,32 +1,57 @@
-import numpy
+import numpy as np
 import cv2
-import os, os.path
-from matplotlib import pyplot as plt
 import glob
+from distance import euclidean
 
-images = []
-hist = []
-thist = []
 
-# n=0
-for i in glob.glob("DDBB/Debug/*jpg"):
-    img = cv2.imread(i)
-    images.append(img)
-    histr = cv2.calcHist([img], [0], None, [256], [0, 256])
-    histg = cv2.calcHist([img], [1], None, [256], [0, 256])
-    histb = cv2.calcHist([img], [2], None, [256], [0, 256])
+class Dataset:
+    def __init__(self, path):
+        self.paths = glob.glob("DDBB/Debug/*jpg")
 
-    thist.append(histr)
-    thist.append(histg)
-    thist.append(histb)
-    hist.append(thist)
+    def __iter__(self):
+        self
 
-print(hist[0][1] == histg)
+    def __next__(self):
+        for i in len(self.paths):
+            yield self[i]
 
-# cv2.imshow('image', img)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-# img = cv2.imread("DDBB/bbdd_00000.jpg",cv2.COLOR_BGR2GRAY)
-# hist = cv2.calcHist([img],[0],None,[256],[0,256])
-# plt.plot(histg)
-# plt.show()
+    def __getitem__(self, idx):
+        return cv2.imread(self.paths[idx])
+
+
+def calc_hist(img):
+    return np.array(
+        [
+            cv2.calcHist([img], [0], None, [256], [0, 256]),
+            cv2.calcHist([img], [1], None, [256], [0, 256]),
+            cv2.calcHist([img], [2], None, [256], [0, 256]),
+        ]
+    )
+
+
+def compute_hists(dataset):
+    return np.array([calc_hist(img) for img in dataset])
+
+
+QS1 = Dataset("QS1")
+DB = Dataset("DB")
+
+db_hists = compute_hists(DB)
+
+
+def calc_similarities(measure):
+    def compute_one(img):
+        hist = calc_hist(img)
+        return [measure(hist, db_hist) for db_hist in db_hists]
+
+    return np.array([compute_one(img) for img in QS1])
+
+
+simils = calc_similarities(euclidean)
+
+
+def get_tops(similarities):
+    
+
+
+
