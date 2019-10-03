@@ -6,3 +6,5 @@ from scipy.spatial import distance
 
 def euclidean(ls, rs):
     return sum(distance.euclidean(l, r) for l, r in zip(ls, rs))
+
+# TODO(Beto): More distance measures

@@ -8,4 +8,4 @@ DB = HistDataset("datasets/database")
 sims = calc_similarities(euclidean, DB, QS1, True)
 tops = get_tops(sims, 4)
 
-sims[0, tops[0]]
+print(sims[0, tops[0]])
