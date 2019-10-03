@@ -4,14 +4,14 @@
   - [x] Init repo etc.
   - [x] Accessing images
   - [x] Computing histograms
-  - [] Similarity measures
+  - [ ] Similarity measures
   - [x] Retrieval system
-  - [] Evaluate retrieval system using map@k
-  - [] Background removal
-  - [] Evaluate background masks and retrieval system
+  - [ ] Evaluate retrieval system using map@k
+  - [ ] Background removal
+  - [ ] Evaluate background masks and retrieval system
  
 #### Total - Checklist:
-  - [] Develop full python solution
-  - [] Create slides
-  - [] Run the code on test datasets on Sunday & Upload results
-  - [] Post the questions for other groups
+  - [ ] Develop full python solution
+  - [ ] Create slides
+  - [ ] Run the code on test datasets on Sunday & Upload results
+  - [ ] Post the questions for other groups
