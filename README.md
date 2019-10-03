@@ -6,7 +6,7 @@
   - [x] Computing histograms
   - [ ] Similarity measures
   - [x] Retrieval system
-  - [ ] Evaluate retrieval system using map@k
+  - [x] Evaluate retrieval system using map@k
   - [ ] Background removal
   - [ ] Evaluate background masks and retrieval system
  

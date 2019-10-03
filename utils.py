@@ -26,8 +26,12 @@ def get_tops(similarities, k):
 
 
 def get_groundtruth(path):
+    """
+    Returns a list of lists from a specified pickle file
+    with the format needed to execute Map@k
+    list[[i]] contains the correct prediction for the i-th image
+    in the queryset
+    """
     pklFile = open(path, "rb")
     groundTruth = pickle.load(pklFile)
-    return [[item[0][1] for item in groundTruth]]
-
-# TODO(Marc): Evaluation with MAP@k
+    return [[item[0][1]] for item in groundTruth]
