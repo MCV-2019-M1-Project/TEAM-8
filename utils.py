@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm.auto import tqdm
+import pickle
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -24,4 +25,13 @@ def get_tops(similarities, k):
     return tops
 
 
-# TODO(Marc): Evaluation with MAP@k
+def get_groundtruth(path):
+    """
+    Returns a list of lists from a specified pickle file
+    with the format needed to execute Map@k
+    list[[i]] contains the correct prediction for the i-th image
+    in the queryset
+    """
+    pklFile = open(path, "rb")
+    groundTruth = pickle.load(pklFile)
+    return [[item[0][1]] for item in groundTruth]
