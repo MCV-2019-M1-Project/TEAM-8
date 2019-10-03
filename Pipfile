@@ -6,12 +6,14 @@ verify_ssl = true
 [dev-packages]
 black = "*"
 flake8 = "*"
+jupyter = "*"
 
 [packages]
 numpy = "*"
 opencv-python = "*"
 scipy = "*"
 ml-metrics = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.7"
