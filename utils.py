@@ -9,10 +9,22 @@ def calc_similarities(measure, db, qs, show_progress=False):
     where arr[i,j] = similarity between
     i-th image in queryset and j-th image in database
     """
+
     def compute_one(hist):
-        return [measure(hist, db_hist) for db_hist in db]
+        result = [measure(hist, db_hist) for db_hist in db]
+        return result
+
     generator = tqdm(qs) if show_progress else qs
+
     return np.array([compute_one(hist) for hist in generator])
+
+
+def normalize_hist(hs):
+
+    h_max = max(max(hs[0]), max(hs[1]), max(hs[2]))
+    hs = np.true_divide(hs, h_max)
+
+    return hs
 
 
 def get_tops(similarities, k):
@@ -34,4 +46,5 @@ def get_groundtruth(path):
     """
     pklFile = open(path, "rb")
     groundTruth = pickle.load(pklFile)
-    return [[item[0][1]] for item in groundTruth]
+
+    return [[item[0]] for item in groundTruth]

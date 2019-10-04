@@ -24,11 +24,34 @@ class HistDataset(Dataset):
 
     @staticmethod
     def calc_hist(img):
+        def calc_mask():
+            result = np.zeros(img.shape[:2], dtype="uint8")
+
+            hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+            hls_split = cv2.split(hls)
+
+            lu = np.asarray(hls_split[1])
+            sa = np.asarray(hls_split[2])
+
+            sat_thresh = 100
+            lum_tresh = 75
+
+            result[(sa > sat_thresh) & (lu < lum_tresh)] = 1
+            return result
+
+        """
+        if background should be removed or not
+        """
+        if True:
+            mask = calc_mask()
+        else:
+            mask = None
+
         return np.array(
             [
-                cv2.calcHist([img], [0], None, [256], [0, 256]),
-                cv2.calcHist([img], [1], None, [256], [0, 256]),
-                cv2.calcHist([img], [2], None, [256], [0, 256]),
+                cv2.calcHist([img], [0], mask, [256], [0, 256]),
+                cv2.calcHist([img], [1], mask, [256], [0, 256]),
+                cv2.calcHist([img], [2], mask, [256], [0, 256]),
             ]
         )
 
