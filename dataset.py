@@ -16,6 +16,12 @@ class Dataset:
 
 
 class HistDataset(Dataset):
+    """
+        Calculates the histogram of the images
+        and applies a mask on from RGB to HLS on the Histogram calculation
+    """
+
+
     def __init__(self, *args, caching=True, **kwargs):
         self.caching = caching
         if caching:
