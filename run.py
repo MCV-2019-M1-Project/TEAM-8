@@ -1,18 +1,23 @@
+import ml_metrics as metrics
 from dataset import HistDataset
-from distance import euclidean
-from utils import calc_similarities, get_tops
-import matplotlib.pyplot as plt
-QS1 = HistDataset("datasets/qsd1_w1")
-DB = HistDataset("datasets/DDBB")
+import distance as dist
+from utils import calc_similarities, get_tops, get_groundtruth, normalize_hist
 
-sims = calc_similarities(euclidean, DB, QS1, True)
-tops = get_tops(sims, 4)
+'''For background removal vis HLS values go to dataset.py and check True, didn't have time to put it here cleanly'''
 
-# print(sims[0, tops[0]])
-# print(DB[87][1])
-R=DB[87][0]
-G=DB[87][1]
-B=DB[87][2]
-plt.plot(R,'r',G,'g',B,'b')
-plt.ylabel('Histogram')
-plt.show()
+groundTruth = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
+
+QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1")]
+DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB")]
+
+k = 10
+
+sims = calc_similarities(dist.canberra, DB, QS, True)
+tops = get_tops(sims, k)
+mapAtK = metrics.mapk(groundTruth, tops, k)
+
+print(str(tops[0]))
+print(str(tops[1]))
+print(str(tops[2]))
+
+print("Map@k is " + str(mapAtK))
