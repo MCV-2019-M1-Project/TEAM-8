@@ -6,7 +6,7 @@ from utils import calc_similarities, get_tops, get_groundtruth, normalize_hist
 import matplotlib.pyplot as plt
 '''For background removal vis HLS values go to dataset.py and check True, didn't have time to put it here cleanly'''
 
-groundTruth = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
+groundTruth = get_groundtruth("datasets/qsd1_w1/gt_corresps.pkl")
 
 QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
 QS2 = Dataset("datasets/qsd2_w1")
