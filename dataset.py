@@ -48,7 +48,7 @@ class HistDataset(Dataset):
         """
         if background should be removed or not
         """
-        if True:
+        if False:
             mask = calc_mask()
         else:
             mask = None
