@@ -9,8 +9,8 @@ class Dataset:
         self.paths = glob.glob(f"{path}/*.jpg")
 
     def __getitem__(self, idx):
+        # return cv2.imread(self.paths[idx],cv2.IMREAD_GRAYSCALE)
         return cv2.imread(self.paths[idx])
-
     def __len__(self):
         return len(self.paths)
 
@@ -48,7 +48,7 @@ class HistDataset(Dataset):
         """
         if background should be removed or not
         """
-        if True:
+        if False:
             mask = calc_mask()
         else:
             mask = None

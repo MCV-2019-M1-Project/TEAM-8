@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm.auto import tqdm
 import pickle
+import cv2
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -48,3 +49,5 @@ def get_groundtruth(path):
     groundTruth = pickle.load(pklFile)
 
     return [[item[0]] for item in groundTruth]
+
+
