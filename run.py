@@ -1,4 +1,5 @@
 import ml_metrics as metrics
+from dataset import Dataset
 from dataset import HistDataset
 import distance as dist
 from utils import calc_similarities, get_tops, get_groundtruth, normalize_hist
@@ -7,7 +8,8 @@ import matplotlib.pyplot as plt
 
 groundTruth = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
 
-QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1")]
+QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
+QS2 = Dataset("datasets/qsd2_w1")
 DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB")]
 
 k = 10
