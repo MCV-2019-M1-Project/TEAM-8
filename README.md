@@ -7,7 +7,8 @@
   - [ ] Similarity measures
   - [x] Retrieval system
   - [x] Evaluate retrieval system using map@k
-  - [ ] Background removal
+  - [x] Background removal
+  - [ ] Make background removal recursive for the whole database and modify the images to compute the Histograms without background.
   - [ ] Evaluate background masks and retrieval system
  
 #### Total - Checklist:
