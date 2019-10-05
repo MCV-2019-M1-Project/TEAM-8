@@ -52,6 +52,12 @@ def get_groundtruth(path):
 
 
 def background_removal(dataset):
-    denoised_dataset=[]
-    for i in len(dataset):
-        denoised_dataset=cv2.GaussianBlur(dataset[i], (5,5),0)
+
+    for i in range(dataset.__len__()):
+        denoised_dataset=cv2.GaussianBlur(dataset[i][:, :, :], (5,5),0)
+    return denoised_dataset
+
+def edgedetector (color_channel):
+    sobelX = cv2.Sobel(color_channel,cv2.CV_16S,1,0)
+    sobelY = cv2.Sobel(color_channel, cv2.CV_16S,0,1)
+    result= np.hypot(sobelX,sobelY)
