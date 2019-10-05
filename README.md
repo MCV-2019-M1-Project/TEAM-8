@@ -12,6 +12,6 @@
  
 #### Total - Checklist:
   - [ ] Develop full python solution
-  - [ ] Create slides  [Slides](https://docs.google.com/presentation/d/1Ir0d7vkb6CMT4fbiKwEnJNVr1Fbg4tfaawRQMuKOul8/edit?usp=sharing) 
+  - [x] Create slides  [Slides](https://docs.google.com/presentation/d/1Ir0d7vkb6CMT4fbiKwEnJNVr1Fbg4tfaawRQMuKOul8/edit?usp=sharing) 
   - [ ] Run the code on test datasets on Sunday & Upload results
   - [ ] Post the questions for other groups
