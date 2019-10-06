@@ -6,7 +6,7 @@ import cv2
 
 class Dataset:
     def __init__(self, path, mask):
-        self.paths = glob.glob(f"{path}/*.jpg")
+        self.paths = sorted(glob.glob(f"{path}/*.jpg"))
         print(len(self.paths))
 
     def __getitem__(self, idx):
@@ -96,7 +96,7 @@ class HistDataset(Dataset):
 
 class MaskDataset:
     def __init__(self, path):
-        self.paths = glob.glob(f"{path}/*.png")
+        self.paths = sorted(glob.glob(f"{path}/*.png"))
 
     def __getitem__(self, idx):
         mask = cv2.imread(self.paths[idx], cv2.IMREAD_GRAYSCALE)
