@@ -7,6 +7,7 @@ import cv2
 class Dataset:
     def __init__(self, path, mask):
         self.paths = glob.glob(f"{path}/*.jpg")
+        print(len(self.paths))
 
     def __getitem__(self, idx):
         # return cv2.imread(self.paths[idx],cv2.IMREAD_GRAYSCALE)
@@ -32,26 +33,128 @@ class HistDataset(Dataset):
 
     def calc_hist(self, img):
         def calc_mask():
+            if False:
+                result = np.zeros(img.shape[:2], dtype="uint8")
 
-            im = cv2.GaussianBlur(img, (5, 5), 0)
+                hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+                hls_split = cv2.split(hls)
 
-            gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                lu = np.asarray(hls_split[1])
+                sa = np.asarray(hls_split[2])
 
-            i, j = np.where(thresh == 255)
+                sat_thresh = 100
+                lum_tresh = 75
+
+                result[(sa > sat_thresh) & (lu < lum_tresh)] = 1
+
+                #return result
+
+                pts = cv2.findNonZero(result).squeeze().tolist()
+
+                num = 50
+
+                pts_up_left = np.asarray(sorted(pts, key=lambda x: (x[0] + x[1]))[1:num])
+
+                pts_bottom_left = np.asarray(sorted(pts, key=lambda x: (-(x[1] / (x[0] + 1))))[1:num])
+
+                pts_up_right = np.asarray(sorted(pts, key=lambda x: (-(x[0] / (x[1] + 1))))[1:num])
+
+                pts_bottom_right = np.asarray(sorted(pts, key=lambda x: (-x[0] + -x[1]))[1:num])
+
+                a = 9999
+                pt_up_left = pts_up_left[0]
+                pt_up_right = pts_up_right[0]
+
+                for y in range(1000):
+                    for x in range(1000):
+                        a = abs(pts_up_left[y][1] - pts_up_right[x][1])
+                        if a < 75:
+                            pt_up_left = pts_up_left[y]
+                            pt_up_right = pts_up_right[x]
+                            break
+                    if a < 75:
+                        break
+
+                diff = np.abs(pts_bottom_right[:][0] - pt_up_right[0])
+                pt_bottom_right = pts_bottom_right[np.where(diff == np.amin(diff))[0]][0]
+
+                diff = np.abs(pts_bottom_left[:][1] - pt_bottom_right[1])
+                pt_bottom_left = pts_bottom_left[np.where(diff == np.amin(diff))[0]][0]
+
+                points = np.array((pt_up_right, pt_up_left, pt_bottom_left, pt_bottom_right))
+                res2 = cv2.fillPoly(result, np.int32([points]), 1, 8, 0, None)
+
+                """im = cv2.circle(img, (pt_up_left[0], pt_up_left[1]), 10, (255, 0, 0), 3) #blue
+                im = cv2.circle(img, (pt_up_right[0], pt_up_right[1]), 10, (0, 255, 0), 3) #green
+                im = cv2.circle(img, (pt_bottom_right[0], pt_bottom_right[1]), 10, (255, 255, 255), 3) #white
+                im = cv2.circle(img, (pt_bottom_left[0], pt_bottom_left[1]), 10, (0, 0, 255), 3) #red
+
+                scale_percent = 25  # percent of original size
+                width = int(img.shape[1] * scale_percent / 100)
+                height = int(img.shape[0] * scale_percent / 100)
+                dim = (width, height)
+
+                resized1 = cv2.resize(res2, dim, interpolation=cv2.INTER_AREA)
+                resized2 = cv2.resize(im, dim, interpolation=cv2.INTER_AREA)
+
+                cv2.imshow("a", resized1)
+                cv2.imshow("img",resized2)
+                cv2.waitKey()
+                cv2.destroyAllWindows()"""
+
+                return res2
+
+            else:
+                im = cv2.GaussianBlur(img, (5, 5), 0)
+
+                gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+                # noise removal
+                kernel = np.ones((3, 3), np.uint8)
+                opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+                # sure background area
+                sure_bg = cv2.dilate(opening, kernel, iterations=3)
+                # Finding sure foreground area
+                dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+                ret, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+
+                # Finding unknown region
+                sure_fg = np.uint8(sure_fg)
+                unknown = cv2.subtract(sure_bg, sure_fg)
+
+                #scale_percent = 35  # percent of original size
+                #width = int(img.shape[1] * scale_percent / 100)
+                #height = int(img.shape[0] * scale_percent / 100)
+                #dim = (width, height)
+
+                #resized1 = cv2.resize(sure_fg, dim, interpolation=cv2.INTER_AREA)
+                #resized2 = cv2.resize(unknown, dim, interpolation=cv2.INTER_AREA)
+
+                #cv2.imshow("a", resized1)
+                #cv2.imshow("img", resized2)
+                #cv2.waitKey()
+                #cv2.destroyAllWindows()
+
+                #cv2.waitKey()
+
+                i, j = np.where(unknown == 255)
+                k, d = np.where(thresh[:, 0:100] == 255)
 
 
-            k, d = np.where(thresh[:, 0:100] == 255)
-           
+                points = np.array([[11, 13],
+                                   [14, 16],
+                                   [17, 11],
+                                   [12, 15]]).astype('int32')
 
-            points[1] = (j[0], i[0])
-            points[2] = (d[0], k[0])
-            points[3] = (d[-1], k[-1])
-            points[0] = (j[-1], i[-1])
+                points[1] = (j[0], i[0])
+                points[2] = (d[0], k[0])
+                points[3] = (d[-1], k[-1])
+                points[0] = (j[-1], i[-1])
 
-            image_countours = cv2.fillPoly(thresh, np.int32([points]), (255, 255, 255), 8, 0, None)
+                image_countours = cv2.fillPoly(unknown, np.int32([points]), (255, 255, 255), 8, 0, None)
 
-            return image_countours
+                return image_countours
 
         if self.masking:
             mask = calc_mask()
