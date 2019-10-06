@@ -33,52 +33,6 @@ print("Map@k is " + str(mapAtK))
 # plt.ylabel('Histogram')
 # plt.show()
 
-#for imgi in QS2:
-
-"""
-    scale_percent = 25 # percent of original size
-    width = int(img.shape[1] * scale_percent / 100)
-    height = int(img.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    # resize image
-    
-    resized1 = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-    resized2 = cv2.resize(image_countours, dim, interpolation = cv2.INTER_AREA)
-
-    cv2.imshow("dd", resized1)
-    cv2.imshow("dad", resized2)
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()"""
-
-# print("dd")
-# print(k)
-# plt.imshow(thresh)
-# plt.show()
-# cv2.waitKey(0)
-
-
-# print(QS2[1][:,:,1])
-# imgplot=plt.imshow(QS2[1])
-# cv2.imshow('red',QS2[1][:,:,0])
-# cv2.imshow('green',QS2[1][:,:,1])
-# cv2.imshow('blue',QS2[1][:,:,2])
-# imgray = cv2.cvtColor(QS2[1], cv2.COLOR_BGR2GRAY)
-# ret, thresh = cv2.threshold(imgray, 100, 255, 0)
-# countours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-# image_countours=cv2.drawContours(QS2[1],countours,-1, (0,255,0), 3)
-# image_countours=cv2.resize(image_countours,(1920,1080))
-# cv2.imshow('countures',image_countours)
-# print(countours)
-# imgplot=plt.imshow(cv2.cvtColor(QS2[1], cv2.COLOR_BGR2RGB))
-# plt.show()
-# cv2.waitKey(0)
-
-
-
-# edgeImg = np.max(np.array([edgedetector(denoised_dataset[1][:, :, 0]), edgedetector(denoised_dataset[1][:, :, 1]), edgedetector(denoised_dataset[1][:, :, 2])]),axis=0)
-# cv2.imshow('countures', edgeImg)
-
 
 
 

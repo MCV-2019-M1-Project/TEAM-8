@@ -33,7 +33,6 @@ class HistDataset(Dataset):
 
     def calc_hist(self, img):
         def calc_mask():
-
             if False:
                 result = np.zeros(img.shape[:2], dtype="uint8")
 
@@ -105,7 +104,7 @@ class HistDataset(Dataset):
 
                 return res2
 
-            else :
+            else:
                 im = cv2.GaussianBlur(img, (5, 5), 0)
 
                 gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -124,13 +123,13 @@ class HistDataset(Dataset):
                 sure_fg = np.uint8(sure_fg)
                 unknown = cv2.subtract(sure_bg, sure_fg)
 
-                scale_percent = 35  # percent of original size
-                width = int(img.shape[1] * scale_percent / 100)
-                height = int(img.shape[0] * scale_percent / 100)
-                dim = (width, height)
+                #scale_percent = 35  # percent of original size
+                #width = int(img.shape[1] * scale_percent / 100)
+                #height = int(img.shape[0] * scale_percent / 100)
+                #dim = (width, height)
 
-                resized1 = cv2.resize(sure_fg, dim, interpolation=cv2.INTER_AREA)
-                resized2 = cv2.resize(unknown, dim, interpolation=cv2.INTER_AREA)
+                #resized1 = cv2.resize(sure_fg, dim, interpolation=cv2.INTER_AREA)
+                #resized2 = cv2.resize(unknown, dim, interpolation=cv2.INTER_AREA)
 
                 #cv2.imshow("a", resized1)
                 #cv2.imshow("img", resized2)
@@ -157,9 +156,6 @@ class HistDataset(Dataset):
 
                 return image_countours
 
-        """
-        if background should be removed or not
-        """
         if self.masking:
             mask = calc_mask()
         else:
