@@ -64,7 +64,7 @@ class HistDataset(Dataset):
 
         points = np.array(
             [(j[-1], i[-1]), (j[0], i[0]), (d[0], k[0]), (d[-1], k[-1])]
-        ).astype("int32")
+        )
 
         image_countours = cv2.fillPoly(
             unknown, np.int32([points]), (255, 255, 255), 8, 0, None
