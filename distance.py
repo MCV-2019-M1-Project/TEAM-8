@@ -26,7 +26,9 @@ def x2(ls, rs):
 
 
 def h_intersection(ls, rs):
-    result = sum(sum(np.diff(np.concatenate((l, r), axis=1), n=1)) for l, r in zip(ls, rs))
+    result = sum(
+        sum(np.diff(np.concatenate((l, r), axis=1), n=1)) for l, r in zip(ls, rs)
+    )
     return result
 
 

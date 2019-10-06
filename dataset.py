@@ -12,6 +12,7 @@ class Dataset:
     def __getitem__(self, idx):
         # return cv2.imread(self.paths[idx],cv2.IMREAD_GRAYSCALE)
         return cv2.imread(self.paths[idx])
+
     def __len__(self):
         return len(self.paths)
 
@@ -21,7 +22,6 @@ class HistDataset(Dataset):
         Calculates the histogram of the images
         and applies a mask on from RGB to HLS on the Histogram calculation
     """
-
 
     def __init__(self, *args, caching=True, **kwargs):
         self.caching = caching
@@ -55,7 +55,9 @@ class HistDataset(Dataset):
             sure_bg = cv2.dilate(opening, kernel, iterations=3)
             # Finding sure foreground area
             dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-            ret, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+            ret, sure_fg = cv2.threshold(
+                dist_transform, 0.7 * dist_transform.max(), 255, 0
+            )
 
             # Finding unknown region
             sure_fg = np.uint8(sure_fg)
@@ -70,7 +72,9 @@ class HistDataset(Dataset):
             points[3] = (d[-1], k[-1])
             points[0] = (j[-1], i[-1])
 
-            image_countours = cv2.fillPoly(unknown, np.int32([points]), (255, 255, 255), 8, 0, None)
+            image_countours = cv2.fillPoly(
+                unknown, np.int32([points]), (255, 255, 255), 8, 0, None
+            )
 
             return image_countours
 
@@ -107,5 +111,3 @@ class MaskDataset:
 
     def __len__(self):
         return len(self.paths)
-
-
