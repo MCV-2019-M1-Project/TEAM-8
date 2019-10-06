@@ -22,7 +22,6 @@ DB = [
     normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False)
 ]
 
-
 mask_dataset = HistDataset("datasets/qsd2_w1", masking=True)
 
 predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, item in enumerate(mask_dataset)]
@@ -46,3 +45,9 @@ print("Precision: " + str(mask_metrics["precision"]))
 print("Recall: " + str(mask_metrics["recall"]))
 print("F1-score: " + str(mask_metrics["f1_score"]))
 
+#If you want to see the computed masks set this if to True
+if False:
+    predicted_masks = [mask_dataset.get_mask(i) for i, item in enumerate(mask_dataset)]
+    for i, mask in enumerate(predicted_masks):
+        cv2.imshow('ImageWindow', mask)
+        cv2.waitKey()
