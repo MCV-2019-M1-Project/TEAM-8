@@ -1,5 +1,4 @@
 import ml_metrics as metrics
-from dataset import Dataset
 from dataset import HistDataset
 from dataset import MaskDataset
 import distance as dist
@@ -10,9 +9,6 @@ from utils import (
     normalize_hist,
     get_mask_metrics,
 )
-import matplotlib.pyplot as plt
-import cv2
-import numpy as np
 
 """For background removal vis HLS values go to dataset.py and check True, didn't have time to put it here cleanly"""
 
@@ -45,12 +41,4 @@ mask_metrics = get_mask_metrics(predicted_masks, gt_masks)
 print("Precision: " + str(mask_metrics["precision"]))
 print("Recall: " + str(mask_metrics["recall"]))
 print("F1-score: " + str(mask_metrics["f1_score"]))
-
-# If you want to display any specific histogram
-# R=DB[87][0]
-# G=DB[87][1]
-# B=DB[87][2]
-# plt.plot(R,'r',G,'g',B,'b')
-# plt.ylabel('Histogram')
-# plt.show()
 

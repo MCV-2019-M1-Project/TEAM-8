@@ -10,7 +10,6 @@ class Dataset:
         print(len(self.paths))
 
     def __getitem__(self, idx):
-        # return cv2.imread(self.paths[idx],cv2.IMREAD_GRAYSCALE)
         return cv2.imread(self.paths[idx])
 
     def __len__(self):
