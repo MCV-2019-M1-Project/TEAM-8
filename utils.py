@@ -52,9 +52,10 @@ def get_groundtruth(path):
     return [[item[0]] for item in groundTruth]
 
 
-def get_mask_metrics(pred, gt):
+def get_mask_metrics(pred, gt, show_progress):
     results = np.zeros(3)
-    for i, gt_mask in enumerate(gt):
+    generator = tqdm(gt) if show_progress else gt
+    for i, gt_mask in enumerate(generator):
         metrics = MaskMetrics(pred[i], gt_mask)
         results[0] += metrics.precision()
         results[1] += metrics.recall()
