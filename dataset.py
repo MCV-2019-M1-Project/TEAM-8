@@ -29,16 +29,6 @@ class HistDataset(Dataset):
         super().__init__(*args, **kwargs)
 
     def calc_mask(self, img):
-        """
-        This is to remove the background it basically searches for the key points of the rectangle and removes the background.
-
-        It just works fine with this particular scenario.
-
-        P2  P1
-
-        P3  P0
-
-        """
         im = cv2.GaussianBlur(img, (5, 5), 0)
 
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -53,20 +43,23 @@ class HistDataset(Dataset):
         sure_bg = cv2.dilate(opening, kernel, iterations=3)
         # Finding sure foreground area
         dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-        ret, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+        ret, sure_fg = cv2.threshold(dist_transform, 0.5 * dist_transform.max(), 255, 0)
 
         # Finding unknown region
         sure_fg = np.uint8(sure_fg)
         unknown = cv2.subtract(sure_bg, sure_fg)
-        i, j = np.where(unknown == 255)
-        k, d = np.where(unknown[:, 0:150] == 255)
+        combi = unknown + sure_fg
+        combi[combi > 255] = 255
+
+        i, j = np.where(combi == 255)
+        k, d = np.where(combi[:, 0:150] == 255)
 
         points = np.array(
             [(j[-1], i[-1]), (j[0], i[0]), (d[0], k[0]), (d[-1], k[-1])]
         )
 
         image_countours = cv2.fillPoly(
-            unknown, np.int32([points]), (255, 255, 255), 8, 0, None
+            combi, np.int32([points]), (255, 255, 255), 8, 0, None
         )
 
         return image_countours
@@ -74,12 +67,20 @@ class HistDataset(Dataset):
     def calc_hist(self, img):
 
         mask = None if not self.masking else self.calc_mask(img)
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
 
         return np.array(
             [
                 cv2.calcHist([img], [0], mask, [256], [0, 256]),
                 cv2.calcHist([img], [1], mask, [256], [0, 256]),
                 cv2.calcHist([img], [2], mask, [256], [0, 256]),
+                cv2.calcHist([hsv], [0], mask, [256], [0, 256]),
+                cv2.calcHist([hsv], [1], mask, [256], [0, 256]),
+                cv2.calcHist([hsv], [2], mask, [256], [0, 256]),
+                cv2.calcHist([lab], [0], mask, [256], [0, 256]),
+                cv2.calcHist([lab], [1], mask, [256], [0, 256]),
+                cv2.calcHist([lab], [2], mask, [256], [0, 256]),
             ]
         )
 
