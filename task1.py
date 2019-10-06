@@ -1,9 +1,7 @@
 import ml_metrics as metrics
 import cv2
-from dataset import HistDataset
-from dataset import MaskDataset
+from dataset import HistDataset, Dataset, MaskDataset
 import distance as dist
-import numpy as np
 from utils import (
     calc_similarities,
     get_tops,
@@ -25,8 +23,8 @@ def find_img_corresp(QS, groundTruth, masking, k):
 
     if masking:
         gt_masks = MaskDataset("datasets/qsd2_w1")
-        mask_dataset = HistDataset("datasets/qsd2_w1", masking=True)
-        predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, item in enumerate(mask_dataset)]
+        mask_dataset = Dataset("datasets/qsd2_w1", masking=True)
+        predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, _ in enumerate(mask_dataset)]
 
         mask_metrics = get_mask_metrics(predicted_masks, gt_masks, True)
 

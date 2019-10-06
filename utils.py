@@ -97,3 +97,19 @@ def resize(img, percent):
     dim = (width, height)
 
     return cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+
+
+def binsearch(p, q, cond):
+    mid = (p + q) // 2
+    if mid == p:
+        return mid
+    elif cond(mid):
+        return binsearch(mid, q, cond)
+    return binsearch(p, mid, cond)
+
+
+def show_img(img, title=""):
+    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+    cv2.imshow(title, img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
