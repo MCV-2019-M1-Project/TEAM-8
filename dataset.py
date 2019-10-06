@@ -39,21 +39,10 @@ class HistDataset(Dataset):
             ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
             i, j = np.where(thresh == 255)
-            y1 = i[0]  # fist point
-            x1 = j[0]
-            y4 = i[-1]  # last point
-            x4 = j[-1]
+
 
             k, d = np.where(thresh[:, 0:100] == 255)
-            y2 = k[0]  # second point
-            x2 = d[0]
-            y3 = k[-1]  # third point
-            x3 = d[-1]
-
-            points = np.array([[11, 13],
-                               [14, 16],
-                               [17, 11],
-                               [12, 15]]).astype('int32')
+           
 
             points[1] = (j[0], i[0])
             points[2] = (d[0], k[0])
