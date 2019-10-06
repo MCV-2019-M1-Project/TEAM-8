@@ -53,10 +53,7 @@ class HistDataset(Dataset):
                 i, j = np.where(unknown == 255)
                 k, d = np.where(thresh[:, 0:100] == 255)
 
-                points = np.array([[11, 13],
-                                   [14, 16],
-                                   [17, 11],
-                                   [12, 15]]).astype('int32')
+                points=np.zeros((4, 2))
 
                 points[1] = (j[0], i[0])
                 points[2] = (d[0], k[0])
