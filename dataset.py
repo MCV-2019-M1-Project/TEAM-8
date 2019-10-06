@@ -5,7 +5,7 @@ import cv2
 
 
 class Dataset:
-    def __init__(self, path):
+    def __init__(self, path, mask):
         self.paths = glob.glob(f"{path}/*.jpg")
 
     def __getitem__(self, idx):
@@ -27,28 +27,44 @@ class HistDataset(Dataset):
         if caching:
             self.cache = dict()
         super().__init__(*args, **kwargs)
+        print(args)
+        self.masking = args[1]
 
-    @staticmethod
-    def calc_hist(img):
+    def calc_hist(self, img):
         def calc_mask():
-            result = np.zeros(img.shape[:2], dtype="uint8")
 
-            hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-            hls_split = cv2.split(hls)
+            im = cv2.GaussianBlur(img, (5, 5), 0)
 
-            lu = np.asarray(hls_split[1])
-            sa = np.asarray(hls_split[2])
+            gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-            sat_thresh = 100
-            lum_tresh = 75
+            i, j = np.where(thresh == 255)
+            y1 = i[0]  # fist point
+            x1 = j[0]
+            y4 = i[-1]  # last point
+            x4 = j[-1]
 
-            result[(sa > sat_thresh) & (lu < lum_tresh)] = 1
-            return result
+            k, d = np.where(thresh[:, 0:100] == 255)
+            y2 = k[0]  # second point
+            x2 = d[0]
+            y3 = k[-1]  # third point
+            x3 = d[-1]
 
-        """
-        if background should be removed or not
-        """
-        if False:
+            points = np.array([[11, 13],
+                               [14, 16],
+                               [17, 11],
+                               [12, 15]]).astype('int32')
+
+            points[1] = (j[0], i[0])
+            points[2] = (d[0], k[0])
+            points[3] = (d[-1], k[-1])
+            points[0] = (j[-1], i[-1])
+
+            image_countours = cv2.fillPoly(thresh, np.int32([points]), (255, 255, 255), 8, 0, None)
+
+            return image_countours
+
+        if self.masking:
             mask = calc_mask()
         else:
             mask = None
