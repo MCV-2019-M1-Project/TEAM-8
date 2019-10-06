@@ -34,26 +34,7 @@ print("Map@k is " + str(mapAtK))
 # plt.show()
 
 
-# print(QS2[1][:,:,1])
-# imgplot=plt.imshow(QS2[1])
-# cv2.imshow('red',QS2[1][:,:,0])
-# cv2.imshow('green',QS2[1][:,:,1])
-# cv2.imshow('blue',QS2[1][:,:,2])
-# imgray = cv2.cvtColor(QS2[1], cv2.COLOR_BGR2GRAY)
-# ret, thresh = cv2.threshold(imgray, 100, 255, 0)
-# countours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-# image_countours=cv2.drawContours(QS2[1],countours,-1, (0,255,0), 3)
-# image_countours=cv2.resize(image_countours,(1920,1080))
-# cv2.imshow('countures',image_countours)
-# print(countours)
-# imgplot=plt.imshow(cv2.cvtColor(QS2[1], cv2.COLOR_BGR2RGB))
-# plt.show()
-# cv2.waitKey(0)
 
-
-
-# edgeImg = np.max(np.array([edgedetector(denoised_dataset[1][:, :, 0]), edgedetector(denoised_dataset[1][:, :, 1]), edgedetector(denoised_dataset[1][:, :, 2])]),axis=0)
-# cv2.imshow('countures', edgeImg)
 
 
 
