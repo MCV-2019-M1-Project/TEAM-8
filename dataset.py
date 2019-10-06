@@ -7,7 +7,6 @@ import cv2
 class Dataset:
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
-        print(len(self.paths))
 
     def __getitem__(self, idx):
         return cv2.imread(self.paths[idx])
@@ -60,7 +59,7 @@ class HistDataset(Dataset):
         sure_fg = np.uint8(sure_fg)
         unknown = cv2.subtract(sure_bg, sure_fg)
         i, j = np.where(unknown == 255)
-        k, d = np.where(thresh[:, 0:150] == 255)
+        k, d = np.where(unknown[:, 0:150] == 255)
 
         points = np.array(
             [(j[-1], i[-1]), (j[0], i[0]), (d[0], k[0]), (d[-1], k[-1])]
