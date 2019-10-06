@@ -17,9 +17,13 @@ import numpy as np
 """For background removal vis HLS values go to dataset.py and check True, didn't have time to put it here cleanly"""
 
 groundTruth = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
-# QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
-QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", True)]
-DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", False)]
+QS = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
+QS2 = [
+    normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True)
+]
+DB = [
+    normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False)
+]
 gt_masks = MaskDataset("datasets/qsd2_w1")
 
 k = 10
