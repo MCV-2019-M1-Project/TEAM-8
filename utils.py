@@ -2,6 +2,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import pickle
 import cv2
+from mask_metrics import MaskMetrics
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -51,3 +52,16 @@ def get_groundtruth(path):
     return [[item[0]] for item in groundTruth]
 
 
+def get_mask_metrics(pred, gt):
+    results = np.zeros(3)
+    for i, gt_mask in enumerate(gt):
+        metrics = MaskMetrics(pred[i], gt_mask)
+        results[0] += metrics.precision()
+        results[1] += metrics.recall()
+        results[2] += metrics.f1_score()
+    results /= len(gt)
+    metrics_dict = dict()
+    metrics_dict["precision"] = results[0]
+    metrics_dict["recall"] = results[1]
+    metrics_dict["f1_score"] = results[2]
+    return metrics_dict
