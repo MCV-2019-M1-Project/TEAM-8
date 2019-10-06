@@ -111,17 +111,37 @@ class HistDataset(Dataset):
                 gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
                 ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-                i, j = np.where(thresh == 255)
-                y1 = i[0]  # fist point
-                x1 = j[0]
-                y4 = i[-1]  # last point
-                x4 = j[-1]
+                # noise removal
+                kernel = np.ones((3, 3), np.uint8)
+                opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+                # sure background area
+                sure_bg = cv2.dilate(opening, kernel, iterations=3)
+                # Finding sure foreground area
+                dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+                ret, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
 
+                # Finding unknown region
+                sure_fg = np.uint8(sure_fg)
+                unknown = cv2.subtract(sure_bg, sure_fg)
+
+                scale_percent = 35  # percent of original size
+                width = int(img.shape[1] * scale_percent / 100)
+                height = int(img.shape[0] * scale_percent / 100)
+                dim = (width, height)
+
+                resized1 = cv2.resize(sure_fg, dim, interpolation=cv2.INTER_AREA)
+                resized2 = cv2.resize(unknown, dim, interpolation=cv2.INTER_AREA)
+
+                #cv2.imshow("a", resized1)
+                #cv2.imshow("img", resized2)
+                #cv2.waitKey()
+                #cv2.destroyAllWindows()
+
+                #cv2.waitKey()
+
+                i, j = np.where(unknown == 255)
                 k, d = np.where(thresh[:, 0:100] == 255)
-                y2 = k[0]  # second point
-                x2 = d[0]
-                y3 = k[-1]  # third point
-                x3 = d[-1]
+
 
                 points = np.array([[11, 13],
                                    [14, 16],
@@ -133,7 +153,7 @@ class HistDataset(Dataset):
                 points[3] = (d[-1], k[-1])
                 points[0] = (j[-1], i[-1])
 
-                image_countours = cv2.fillPoly(thresh, np.int32([points]), (255, 255, 255), 8, 0, None)
+                image_countours = cv2.fillPoly(unknown, np.int32([points]), (255, 255, 255), 8, 0, None)
 
                 return image_countours
 
