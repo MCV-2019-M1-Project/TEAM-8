@@ -85,3 +85,17 @@ class HistDataset(Dataset):
         if self.caching:
             return self.cache[idx] if idx in self.cache else self._calculate(idx)
         return self.calc_hist(super().__getitem__(idx))
+
+
+class MaskDataset:
+    def __init__(self, path):
+        self.paths = glob.glob(f"{path}/*.png")
+
+    def __getitem__(self, idx):
+        mask = cv2.imread(self.paths[idx], cv2.IMREAD_GRAYSCALE)
+        return cv2.threshold(mask, 128, 1, cv2.THRESH_BINARY)[1]
+
+    def __len__(self):
+        return len(self.paths)
+
+
