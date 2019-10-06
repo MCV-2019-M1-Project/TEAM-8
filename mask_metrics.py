@@ -13,7 +13,7 @@ class MaskMetrics:
     def precision(self):
         true_positives = self.results[1, 1]
         false_positives = self.results[1, 0]
-        return true_positives/float(true_positives + false_positives)
+        return true_positives / float(true_positives + false_positives)
 
     def recall(self):
         true_positives = self.results[1, 1]
@@ -23,4 +23,4 @@ class MaskMetrics:
     def f1_score(self):
         precision = self.precision()
         recall = self.recall()
-        return 2*((precision * recall)/float(precision + recall))
+        return 2 * ((precision * recall) / float(precision + recall))
