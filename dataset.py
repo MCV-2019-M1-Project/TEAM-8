@@ -5,7 +5,7 @@ import cv2
 
 
 class Dataset:
-    def __init__(self, path, mask):
+    def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
         print(len(self.paths))
 
@@ -92,6 +92,9 @@ class HistDataset(Dataset):
         if self.caching:
             return self.cache[idx] if idx in self.cache else self._calculate(idx)
         return self.calc_hist(super().__getitem__(idx))
+
+    def get_mask(self, idx):
+        return self.calc_mask(super().__getitem__(idx))
 
 
 class MaskDataset:

@@ -1,4 +1,5 @@
 import ml_metrics as metrics
+import cv2
 from dataset import HistDataset
 from dataset import MaskDataset
 import distance as dist
@@ -20,6 +21,11 @@ QS2 = [
 DB = [
     normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False)
 ]
+
+
+mask_dataset = HistDataset("datasets/qsd2_w1", masking=True)
+
+predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, item in enumerate(mask_dataset)]
 gt_masks = MaskDataset("datasets/qsd2_w1")
 
 k = 10
@@ -34,9 +40,7 @@ print(str(tops[2]))
 
 print("Map@k is " + str(mapAtK))
 
-# TODO predicted_masks should be replaced by the array of masks that we compute
-predicted_masks = gt_masks
-mask_metrics = get_mask_metrics(predicted_masks, gt_masks)
+mask_metrics = get_mask_metrics(predicted_masks, gt_masks, True)
 
 print("Precision: " + str(mask_metrics["precision"]))
 print("Recall: " + str(mask_metrics["recall"]))
