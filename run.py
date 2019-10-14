@@ -11,13 +11,16 @@ import text_removal
 #    normalize_hist,
 #    get_mask_metrics,
 #)
+namedataset=[text_removal.getpoints(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
 
-namedataset= [print('2') for im in text_removal.text_remover("qsd1_w2")]
-cv2.imshow('try', namedataset[1])
+    
+#Fer el threshold per colors, ja que el valor de igual nomes el tenen el retols.
+image_countours=cv2.resize(namedataset[9],(1280,
+                                           700))
+cv2.imshow('try', image_countours)
 cv2.waitKey(0)
-print('here')
 
-cv2.waitkey(0)
+
 #def find_img_corresp(QS, groundTruth, masking):
 #    sims = calc_similarities(dist.canberra, DB, QS, True)
 #    tops = get_tops(sims, k)
