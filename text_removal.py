@@ -11,9 +11,9 @@ class text_remover(dataset.Dataset):
        
         return super().__getitem__(idx)  
 
-def getpoints(img):
+def getpoints(im):
 
-    im = cv2.GaussianBlur(img, (5, 5), 0)
+    #im = cv2.GaussianBlur(img, (5, 5), 0)
 
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     #ret, thresh = cv2.threshold(
