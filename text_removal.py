@@ -49,9 +49,9 @@ def getpoints2(im):
     # ret, thresh = cv2.threshold(
     # gray, 200, 255, cv2.THRESH_BINARY)
     kernel1= np.ones((6,6),np.uint8)
-    kernel = np.ones((int((im.shape[0])/300),int((im.shape[1])/45)), np.uint8)
+    kernel = np.ones((int((im.shape[0])/350),int((im.shape[1])/35)), np.uint8)
 
-    denoised = cv2.erode(mask1, kernel, iterations=4)
+    denoised = cv2.erode(mask1, kernel, iterations=5)
     denoised = cv2.erode(denoised, kernel, iterations=1)
     denoised = cv2.dilate(denoised, kernel, iterations=3)
     denoised = cv2.dilate(denoised, kernel, iterations=2)
@@ -69,11 +69,17 @@ def getpoints2(im):
     drawing = np.zeros((canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8)
     drawing[:,:,0] = gray
     max_area=0
+    max_length=0
+    max=0
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         boundRect[i] = cv2.boundingRect(contours_poly[i])
         area=boundRect[i][2]*boundRect[i][3]
-        if area > max_area:
+        # area = abs((boundRect[i][2] - boundRect[i][3]) * (boundRect[i][1] - boundRect[i][0]))
+    
+        # length= boundRect[i][]
+
+        if (area > max_area) & (boundRect[i][3] < boundRect[i][2]):
             max=boundRect[i]
             max_area=area
         boundRect[i] = max
@@ -82,8 +88,10 @@ def getpoints2(im):
         # cv2.drawContours(drawing, contours_poly, i, (0, 255, 0))
         cv2.rectangle(drawing, (int(boundRect[-1][0]), int(boundRect[-1][1])), \
           (int(boundRect[-1][0]+boundRect[-1][2]), int(boundRect[-1][1]+boundRect[-1][3])), (0, 255, 0), 2)
-    print(boundRect)
-    return drawing
+
+    boundingxy=[boundRect[-1][0],boundRect[-1][1],boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
+    #Coordinates [tlx,tly,brx,bry]
+    return boundingxy
 
 def getpoints3(im):
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)

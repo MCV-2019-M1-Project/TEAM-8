@@ -23,10 +23,11 @@ import text_removal
 # #
 
 namedataset=[text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
-print(len(namedataset))
-for im in range(len(namedataset)):
-    print(im)
-    cv2.imwrite("outputs/"+str(im)+".png",namedataset[im])
+print(namedataset)
+# print(len(namedataset))
+# for im in range(len(namedataset)):
+#     print(im)
+#     cv2.imwrite("outputs/"+str(im)+".png",namedataset[im])
 
 # histogramas=[text_removal.getpoints4(im)for im in text_removal.text_remover("datasets/qsd1_w2")]
 # print(type(histogramas[0][0]))
