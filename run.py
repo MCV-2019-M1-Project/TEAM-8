@@ -1,63 +1,66 @@
+import text_removal
 import ml_metrics as metrics
 import cv2
 from dataset import HistDataset
 from dataset import MaskDataset
-from matplotlib import pyplot as plt
 import distance as dist
-import text_removal
-#from utils import (
-#    calc_similarities,
-#    get_tops,
-#    get_groundtruth,
-#    normalize_hist,
-#    get_mask_metrics,
-#)
-# namedataset=[text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
+from utils import (
+    calc_similarities,
+    get_tops,
+    get_groundtruth,
+    normalize_hist,
+    get_mask_metrics,
+)
+
+
+# def find_img_corresp(QS, groundTruth, masking):
+#     sims = calc_similarities(dist.canberra, DB, QS, True)
+#     tops = get_tops(sims, k)
+#     mapAtK = metrics.mapk(groundTruth, tops, k)
 #
-# #
-# # ##Fer el threshold per colors, ja que el valor de igual nomes el tenen el retols.
-# image_countours=cv2.resize(namedataset[1],(1280,
-#                                           700))
-# cv2.imshow('try', image_countours)
-# cv2.waitKey(0)
-# #
+#     print(str(tops[0]))
+#     print(str(tops[1]))
+#     print(str(tops[2]))
+#     print("Map@k is " + str(mapAtK))
+#
+#     if masking:
+#         gt_masks = MaskDataset("datasets/qsd2_w1")
+#         mask_dataset = HistDataset("datasets/qsd2_w1", masking=True)
+#         predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, item in enumerate(mask_dataset)]
+#
+#         mask_metrics = get_mask_metrics(predicted_masks, gt_masks, True)
+#
+#         print("Precision: " + str(mask_metrics["precision"]))
+#         print("Recall: " + str(mask_metrics["recall"]))
+#         print("F1-score: " + str(mask_metrics["f1_score"]))
+#
+#
+# groundTruth1 = get_groundtruth("datasets/qsd1_w1/gt_corresps.pkl")
+# groundTruth2 = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
+#
+# QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
+# QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True)]
+# DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False)]
+#
+# k = 10
+#
+# print("Analyzing QS1")
+# find_img_corresp(QS1, groundTruth1, False)
+#
+# print("Analyzing QS2")
+# find_img_corresp(QS2, groundTruth2, True)
 
-namedataset=[text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
-print(namedataset)
-# print(len(namedataset))
-# for im in range(len(namedataset)):
-#     print(im)
-#     cv2.imwrite("outputs/"+str(im)+".png",namedataset[im])
 
-# histogramas=[text_removal.getpoints4(im)for im in text_removal.text_remover("datasets/qsd1_w2")]
-# print(type(histogramas[0][0]))
-# plt.plot(histogramas[0])
-# plt.show()
-# cv2.imshow('try', histogramas[0])
-# cv2.waitKey(0)
-# print(histogramas[1])
-##Fer el threshold per colors, ja que el valor de igual nomes el tenen el retols.
-#image_countours=cv2.resize(namedataset[1],(1280,
-                                           #700))
-
-
-
-
-
-
-
-# dataset1=[text_removal.getimg(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
-
-#hsv = cv2.cvtColor(dataset1[1], cv2.COLOR_BGR2HSV)
-# hist=cv2.calcHist(dataset1[0], [0], None, [256], [0, 256])
-# image_countours=cv2.resize(hsv,(1280, 700))
-#cv2.imshow('try', image_countours)
-# cv2.waitKey(0)
-# print(type(dataset1[0][:,:,0]))
-# cv2.imshow('try', dataset1[0][:,:,0])
-# cv2.waitKey(0)
-# plt.plot(dataset1[0][:,:,0])
-# plt.show()
+#To print the images just turn Save to True and create outputs directory
+Save = False
+BoundingBoxPoints = [text_removal.getpoints2(im, Save) for im in text_removal.text_remover("datasets/qsd1_w2")]
+if Save:
+    for im in range(len(BoundingBoxPoints)):
+        print(im)
+        cv2.imwrite("outputs/"+str(im)+".png",BoundingBoxPoints[im])
+else:
+    print("The bounding box points by [tlx,tly,brx,bry] :")
+    print(BoundingBoxPoints)
 
 
 

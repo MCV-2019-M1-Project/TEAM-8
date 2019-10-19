@@ -2,7 +2,6 @@ import dataset
 import glob
 import numpy as np
 import cv2
-import os
 class text_remover(dataset.Dataset):
     
     def __init__(self, path):
@@ -31,8 +30,7 @@ def getpoints(im):
     final=sure_bg1-(sure_bg3-sure_bg1-sure_bg2)
     return final
 
-
-def getpoints2(im):
+def getpoints2(im,save):
     # print(im.shape[0])
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     imager=im[:,:,0]
@@ -55,12 +53,6 @@ def getpoints2(im):
     denoised = cv2.erode(denoised, kernel, iterations=1)
     denoised = cv2.dilate(denoised, kernel, iterations=3)
     denoised = cv2.dilate(denoised, kernel, iterations=2)
-    # canny_output = cv2.Canny(denoised, 200, 255)
-    #     # contours, hierarchy = cv2.findContours(canny_output, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #     #
-    #     # denoised=cv2.drawContours(im, contours, -1, (0, 255, 0), 3)
-    #     # print(contours)
-    #     # return denoised
 
     canny_output = cv2.Canny(denoised, 200, 255)
     contours, hierarchy = cv2.findContours(canny_output, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -69,16 +61,11 @@ def getpoints2(im):
     drawing = np.zeros((canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8)
     drawing[:,:,0] = gray
     max_area=0
-    max_length=0
     max=0
     for i, c in enumerate(contours):
         contours_poly[i] = cv2.approxPolyDP(c, 3, True)
         boundRect[i] = cv2.boundingRect(contours_poly[i])
-        area=boundRect[i][2]*boundRect[i][3]
-        # area = abs((boundRect[i][2] - boundRect[i][3]) * (boundRect[i][1] - boundRect[i][0]))
-    
-        # length= boundRect[i][]
-
+        area = boundRect[i][2]*boundRect[i][3]
         if (area > max_area) & (boundRect[i][3] < boundRect[i][2]):
             max=boundRect[i]
             max_area=area
@@ -91,7 +78,10 @@ def getpoints2(im):
 
     boundingxy=[boundRect[-1][0],boundRect[-1][1],boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
     #Coordinates [tlx,tly,brx,bry]
-    return boundingxy
+    if save:
+        return drawing
+    else:
+        return boundingxy
 
 def getpoints3(im):
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -113,14 +103,7 @@ def getpoints3(im):
     equallow = equallow.astype(np.uint8)
     equalhigh = 255 * equalhigh
     equalhigh = equalhigh.astype(np.uint8)
-    denoised1 = cv2.erode(equallow, kernel, iterations=1)
-    # denoised = cv2.erode(denoised, kernel, iterations=1)
-    equallow = cv2.dilate(denoised1, kernel, iterations=1)
-    # equallow = cv2.erode(denoised, kernel, iterations=3)
 
-    # denoised = cv2.dilate(equalhigh, kernel, iterations=5)
-    # denoised = cv2.erode(denoised, kernel, iterations=1)
-    # denoised = cv2.dilate(denoised, kernel, iterations=3)
     equalhigh = cv2.erode(equalhigh, kernel, iterations=1)
     equalhigh = cv2.dilate(equalhigh, kernel, iterations=6)
     equalhigh = cv2.erode(equalhigh, kernel, iterations=7)
@@ -135,10 +118,3 @@ def getpoints3(im):
 
     return final
 
-
-
-
-
-
-def getimg(im):
-    return im
