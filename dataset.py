@@ -7,9 +7,10 @@ import cv2
 class Dataset:
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.data = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-        return cv2.imread(self.paths[idx])
+        return self.data[idx]
 
     def __len__(self):
         return len(self.paths)

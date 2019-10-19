@@ -6,9 +6,9 @@ class text_remover(dataset.Dataset):
     
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.data = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-       
         return super().__getitem__(idx)  
 
 def getpoints(im):

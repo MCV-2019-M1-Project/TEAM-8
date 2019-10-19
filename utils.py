@@ -74,3 +74,18 @@ def get_mean_IoU(gts, preds):
     for x in range(len(gts)):
         result += dist.intersection_over_union(gts[x], preds[x])
     return result / len(preds)
+
+
+def getgradient(img):
+    x, y = np.gradient(img)
+    return np.hypot(x, y).astype(np.uint8)
+
+
+def lapl_at_index(source, index):
+    i,j = index
+    val = (4 * source[i,j])    \
+           - (1 * source[i+1, j]) \
+           - (1 * source[i-1, j]) \
+           - (1 * source[i, j+1]) \
+           - (1 * source[i, j-1])
+    return val
