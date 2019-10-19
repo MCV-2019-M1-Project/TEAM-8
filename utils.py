@@ -3,6 +3,7 @@ from tqdm.auto import tqdm
 import pickle
 import cv2
 from mask_metrics import MaskMetrics
+import distance as dist
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -66,3 +67,10 @@ def get_mask_metrics(pred, gt, show_progress):
     metrics_dict["recall"] = results[1]
     metrics_dict["f1_score"] = results[2]
     return metrics_dict
+
+
+def get_mean_IoU(gts, preds):
+    result = 0
+    for x in range(len(gts)):
+        result += dist.intersection_over_union(gts[x], preds[x])
+    return result / len(preds)

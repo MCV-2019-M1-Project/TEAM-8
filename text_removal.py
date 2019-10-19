@@ -30,7 +30,8 @@ def getpoints(im):
     final=sure_bg1-(sure_bg3-sure_bg1-sure_bg2)
     return final
 
-def getpoints2(im,save):
+
+def getpoints2(im):
     # print(im.shape[0])
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     imager=im[:,:,0]
@@ -76,12 +77,16 @@ def getpoints2(im,save):
         cv2.rectangle(drawing, (int(boundRect[-1][0]), int(boundRect[-1][1])), \
           (int(boundRect[-1][0]+boundRect[-1][2]), int(boundRect[-1][1]+boundRect[-1][3])), (0, 255, 0), 2)
 
+    class Result:
+        def __init__(self, boundingxy, drawing):
+            self.boundingxy = boundingxy
+            self.drawing = drawing
+
     boundingxy=[boundRect[-1][0],boundRect[-1][1],boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
     #Coordinates [tlx,tly,brx,bry]
-    if save:
-        return drawing
-    else:
-        return boundingxy
+
+    return Result(boundingxy, drawing)
+
 
 def getpoints3(im):
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
