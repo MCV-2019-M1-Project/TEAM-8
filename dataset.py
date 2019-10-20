@@ -74,9 +74,10 @@ class HistDataset(Dataset):
         mask = None if not self.masking else self.calc_mask(img)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        img = lab
 
         if self.dimensions == 2:
-            hist = cv2.calcHist([hsv], [0, 1], mask, [180/4, 256/4], [0, 180, 0, 256])
+            hist = cv2.calcHist([hsv], [0, 1], mask, [180/8, 256/8], [0, 180, 0, 256])
             hist = hist / hist.sum(axis=-1, keepdims=True)
             hist[np.isnan(hist)] = 0
             onedhist = np.reshape(hist, [-1])
@@ -89,7 +90,7 @@ class HistDataset(Dataset):
             onedhist = np.reshape(hist, [-1])
             return onedhist
 
-        if self.block > 1:
+        if self.block >= 1:
             hists = []
             for i in range(3):
                 hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
