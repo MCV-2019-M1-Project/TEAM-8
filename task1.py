@@ -35,25 +35,13 @@ def find_img_corresp(QS, groundTruth, masking):
         print("F1-score: " + str(mask_metrics["f1_score"]))
 
 
-img = cv2.imread("datasets/qsd2_w1/00000.jpg")
-cvhist = cv2.calcHist([img], [0, 1, 2], None, [256, 256, 256], [0, 256, 0, 256, 0, 256])
-cvhist = cvhist/cvhist.sum(axis=-1, keepdims=True)
-cvhist[np.isnan(cvhist)] = 0
-onedcvhist = np.reshape(cvhist, [-1])
-distan = dist.euclidean(cvhist, cvhist)
-QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1")]
+QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True, multires=4)]
 
-groundTruth1 = get_groundtruth("datasets/qsd1_w1/gt_corresps.pkl")
 groundTruth2 = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
 
-QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w1")]
-QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True)]
-DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False)]
+DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, dimensions=4)]
 
 k = 10
-
-print("Analyzing QS1")
-find_img_corresp(QS1, groundTruth1, False)
 
 print("Analyzing QS2")
 find_img_corresp(QS2, groundTruth2, True)
