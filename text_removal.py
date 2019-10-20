@@ -63,6 +63,8 @@ def getpoints2(im):
     boundRect = [None]*len(contours)
     drawing = np.zeros((canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8)
     drawing[:,:,0] = gray
+    drawing[:,:,1] = gray
+    drawing[:,:,2] = gray
     max_area=0
     max=0
     for i, c in enumerate(contours):
