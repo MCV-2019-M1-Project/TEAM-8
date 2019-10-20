@@ -110,9 +110,31 @@ class Mask:
         return m
 
 
+class Splitter:
+    def __init__(self, img):
+        self.img = img
+        mask = Mask(img)
+        self.single_mask, cut = mask.get_mask_single(True)
+        _, q, _, p = cut
+        q = self.img.shape[1] - q
+        self.x = mask.get_middle(self.img, p, q)
+
+    def __iter__(self):
+        x = self.x
+        if x is None:
+            yield self.single_mask
+        else:
+            left = np.zeros_like(self.img)
+            left[:, :x] += Mask(self.img[:, :x]).get_mask_single()
+            yield left
+            right = np.zeros_like(self.img)
+            right[:, x:] += Mask(self.img[:, x:]).get_mask_single()
+            yield right
+
+
 class BBox:
     def get_bbox(self, img):
-        base_mask = np.ones_like(img)
+        base_mask = np.ones_like(img[:, :, 0])
         result = text_removal.getpoints2(img)
         bbox_coords = result.boundingxy
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
@@ -131,20 +153,24 @@ class Dataset:
     def __len__(self):
         return len(self.paths)
 
-    def __safegetitem(self, idx):
-        return cv2.imread(self.paths[idx])
-
     def get_mask(self, idx):
         if self.masking or self.bbox:
-            img = self.__safegetitem(idx)
+            img = Dataset.__getitem__(self, idx)
             zeros = np.zeros_like(img)
-            mask = (
-                Mask(img).get_mask() if self.masking else zeros
-            )
+            mask = Mask(img).get_mask() if self.masking else zeros
             mask += BBox().get_bbox(img) if self.bbox else zeros
             mask[mask != 0] = 255
             return mask
         return None
+
+    def get_masks(self, idx):
+        print(idx)
+        img = Dataset.__getitem__(self, idx)
+        bbox = BBox().get_bbox(img)
+        for mask in Splitter(img):
+            res = mask + bbox
+            res[res != 0] = 255
+            yield res
 
 
 class HistDataset(Dataset):
@@ -167,8 +193,10 @@ class HistDataset(Dataset):
 
     def calc_hist(self, idx):
         img = super().__getitem__(idx)
-        mask = self.get_mask(idx)
+        self.mask = self.get_mask(idx)
+        return self._calc_hist(img, self.mask)
 
+    def _calc_hist(self, img, mask):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         img = hsv
@@ -205,9 +233,7 @@ class HistDataset(Dataset):
                 for y in range(0, imgheight, M):
                     for x in range(0, imgwidth, N):
                         for i in range(3):
-                            submask = (
-                                mask[y : y + M, x : x + N] if mask else None
-                            )
+                            submask = mask[y : y + M, x : x + N] if mask else None
                             hists.append(
                                 cv2.calcHist(
                                     [img[y : y + M, x : x + N]],
@@ -228,9 +254,7 @@ class HistDataset(Dataset):
                 imgwidth = img.shape[1] // res
                 for i in range(3):
                     submask = (
-                        cv2.resize(mask, (imgwidth, imgheight))
-                        if self.mask
-                        else None
+                        cv2.resize(mask, (imgwidth, imgheight)) if self.mask else None
                     )
                     downscale = cv2.resize(img, (imgwidth, imgheight))
                     hists.append(
@@ -253,13 +277,28 @@ class HistDataset(Dataset):
         )
 
     def _calculate(self, idx):
-        self.cache[idx] = normalize_hist(self.calc_hist(idx))
+        self.cache[idx] = self.normalize(self.calc_hist(idx))
         return self.cache[idx]
+
+    def normalize(self, hist):
+        return normalize_hist(hist)
 
     def __getitem__(self, idx):
         if self.caching:
             return self.cache[idx] if idx in self.cache else self._calculate(idx)
-        return self.calc_hist(super().__getitem__(idx))
+        return self.normalize(self.calc_hist(super().__getitem__(idx)))
+
+
+class MultiHistDataset(HistDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def normalize(self, hists):
+        return [normalize_hist(h) for h in hists]
+
+    def calc_hist(self, idx):
+        img = Dataset.__getitem__(self, idx)
+        return [self._calc_hist(img, mask) for mask in self.get_masks(idx)]
 
 
 class MaskDataset:

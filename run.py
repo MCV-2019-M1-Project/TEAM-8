@@ -2,7 +2,6 @@
 Example usage: python run.py task2
 """
 import pickle
-
 import numpy as np
 import cv2
 import fire
@@ -11,8 +10,8 @@ from tqdm.auto import tqdm
 
 
 import text_removal
-from utils import get_groundtruth, get_mean_IoU, normalize_hist
-from dataset import Dataset, MaskDataset, HistDataset
+from utils import get_groundtruth, get_mean_IoU
+from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset
 import distance as dist
 
 from utils import calc_similarities, get_tops, get_mask_metrics
@@ -23,6 +22,14 @@ def find_img_corresp(QS, GT, DB, k):
     tops = get_tops(similarieties, k)
     mapAtK = metrics.mapk(GT, tops, k)
     print("Map@k is " + str(mapAtK))
+
+
+def find_multi_img_corresp(QS, GT, DB, k):
+    for qs in QS:
+        similarieties = calc_similarities(dist.canberra, DB, qs, True)
+        tops = get_tops(similarieties, k)
+        mapAtK = metrics.mapk(GT, tops, k)
+        print("Map@k is " + str(mapAtK))
 
 
 def eval_masks(QS, MS_GT):
@@ -58,10 +65,7 @@ class Solution:
         QS2 = HistDataset(self.QSD2_W1, masking=True, multires=4)
         GT = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
         print(f"Computing normalized histograms for {self.DDBB}")
-        DB = [
-            normalize_hist(db_hist)
-            for db_hist in tqdm(HistDataset(self.DDBB, masking=False, multires=4))
-        ]
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))
         print("Analyzing QS2")
         find_img_corresp(QS2, GT, DB, k)
 
@@ -102,6 +106,16 @@ class Solution:
         gt = np.asarray(get_groundtruth("datasets/qsd1_w2/text_boxes.pkl")).squeeze()
         mean_IoU = get_mean_IoU(gt, boundingxys)
         print(f"Mean IoU: {mean_IoU}")
+
+    def task6(self):
+        QS = [ # noqa
+            hists
+            for hists in tqdm(MultiHistDataset(self.QSD2_W2, masking=True, bbox=True))
+        ]
+        GT = get_groundtruth("datasets/qsd2_w2/gt_corresps.pkl")
+        print(GT)
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4))) # noqa
+        # find_multi_img_corresp(QS, GT, DB)
 
     def eval_masks(self):
         QS = Dataset(self.QSD2_W1, masking=True)
