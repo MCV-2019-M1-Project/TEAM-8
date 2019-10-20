@@ -165,6 +165,9 @@ class HistDataset(Dataset):
     def get_mask(self, idx):
         return self.calc_mask(super().__getitem__(idx))
 
+    def get_bbox(self, idx):
+        return self.calc_bbox_as_mask(super().__getitem__(idx))
+
 
 class MaskDataset:
     def __init__(self, path):

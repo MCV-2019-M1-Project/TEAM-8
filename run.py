@@ -4,6 +4,7 @@ import cv2
 from dataset import HistDataset
 from dataset import MaskDataset
 import distance as dist
+import pickle
 from utils import (
     calc_similarities,
     get_tops,
@@ -19,6 +20,8 @@ def find_img_corresp(QS, groundTruth, masking):
     k = 10
     sims = calc_similarities(dist.canberra, DB, QS, True)
     tops = get_tops(sims, k)
+    with open('results.pkl', 'wb') as f:
+        pickle.dump(tops, f)
     mapAtK = metrics.mapk(groundTruth, tops, k)
 
     print(str(tops[0]))
@@ -54,12 +57,23 @@ def find_img_corresp(QS, groundTruth, masking):
 # find_img_corresp(QS2, groundTruth2, True)
 QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w2", bbox=True, multires=2)]
 DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=2)]
-groundTruth2 = get_groundtruth("datasets/qsd1_w2/gt_corresps.pkl")
+groundTruth = get_groundtruth("datasets/qsd1_w2/gt_corresps.pkl")
 find_img_corresp(QS1, groundTruth, True)
 
+#Get text box pkl
+QS = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qst1_w2")]
+boundingxys = [[element.boundingxy] for element in QS]
+with open('QSD1/text_boxes.pkl', 'wb') as f:
+    pickle.dump(boundingxys, f)
 
+#get text box pngs
+QS1 = HistDataset("datasets/qsd1_w2", bbox=True, multires=2)
+predicted_masks = [QS1.get_bbox(i)[:, :] * 255 for i, item in enumerate(QS1)]
+for i, img in enumerate(predicted_masks):
+    filename = "QSD1/boxes/" + f"{i:05d}" + ".png"
+    cv2.imwrite(filename, img)
 
-exit()
+#Show IoU
 QS = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qst1_w2")]
 boundingxys = [[element.boundingxy] for element in QS]
 drawings = [element.drawing for element in QS]
