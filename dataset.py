@@ -74,7 +74,7 @@ class HistDataset(Dataset):
         mask = None if not self.masking else self.calc_mask(img)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        img = lab
+        img = hsv
 
         if self.dimensions == 2:
             hist = cv2.calcHist([hsv], [0, 1], mask, [180/8, 256/8], [0, 180, 0, 256])
