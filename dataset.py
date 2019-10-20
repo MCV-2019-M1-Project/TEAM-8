@@ -2,6 +2,7 @@ import glob
 
 import numpy as np
 import cv2
+import text_removal
 
 
 class Dataset:
@@ -22,9 +23,10 @@ class HistDataset(Dataset):
         and applies a mask on from RGB to HLS on the Histogram calculation
     """
 
-    def __init__(self, *args, caching=True, masking=False, dimensions=1, block=0, multires=0, **kwargs):
+    def __init__(self, *args, caching=True, masking=False, bbox=False, dimensions=1, block=0, multires=0, **kwargs):
         self.caching = caching
         self.masking = masking
+        self.bbox = bbox
         self.dimensions = dimensions
         self.block = block
         self.multires = multires
@@ -69,9 +71,21 @@ class HistDataset(Dataset):
 
         return image_countours
 
+    def calc_bbox_mask(self, img):
+        base_mask = np.ones((np.shape(img)[0], np.shape(img)[1]))
+        bbox_coords = text_removal.getpoints2(img)
+        base_mask[bbox_coords[0]: bbox_coords[2], bbox_coords[1]:bbox_coords[3]] = 0
+        unique, counts = np.unique(base_mask)
+        return base_mask
+
     def calc_hist(self, img):
 
-        mask = None if not self.masking else self.calc_mask(img)
+        if self.masking:
+            mask = self.calc_mask(img)
+        elif self.bbox:
+            mask = self.calc_bbox_mask(img)
+        else:
+            mask = None
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         img = hsv
@@ -107,7 +121,7 @@ class HistDataset(Dataset):
                         y1 = y + M
                         x1 = x + N
                         for i in range(3):
-                            submask = mask[y:y + M, x:x + N] if self.masking else None
+                            submask = mask[y:y + M, x:x + N] if self.masking or self.bbox else None
                             hists.append(cv2.calcHist([img[y:y + M, x:x + N]], [i], submask, [256], [0, 256]))
             return hists
 
@@ -119,7 +133,7 @@ class HistDataset(Dataset):
                 imgheight = img.shape[0] // res
                 imgwidth = img.shape[1] // res
                 for i in range(3):
-                    submask = cv2.resize(mask, (imgwidth, imgheight)) if self.masking else None
+                    submask = cv2.resize(mask, (imgwidth, imgheight)) if self.masking or self.bbox else None
                     downscale = cv2.resize(img, (imgwidth, imgheight))
                     hists.append(cv2.calcHist([downscale], [i], submask, [256], [0, 256]))
             return hists

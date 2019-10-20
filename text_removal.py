@@ -78,7 +78,7 @@ def getpoints2(im):
 
     for i in range(len(contours)):
         # cv2.drawContours(drawing, contours_poly, i, (0, 255, 0))
-        cv2.rectangle(drawing, (int(boundRect[-1][0]), int(boundRect[-1][1])), \
+        cv2.rectangle(drawing, (int(boundRect[-1][0]), int(boundRect[-1][1])),
           (int(boundRect[-1][0]+boundRect[-1][2]), int(boundRect[-1][1]+boundRect[-1][3])), (0, 255, 0), 2)
 
     boundingxy = [boundRect[-1][0], boundRect[-1][1], boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
@@ -193,7 +193,6 @@ def getpoints2(im):
             self.boundingxy = boundingxy
             self.drawing = drawing
 
-    print("done")
     return Result(boundingxy, drawing)
 
 

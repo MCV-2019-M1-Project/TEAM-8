@@ -52,7 +52,7 @@ import numpy as np
 # print("Analyzing QS2")
 # find_img_corresp(QS2, groundTruth2, True)
 
-QS1 = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
+"""QS1 = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
 boundingxys = [element.boundingxy for element in QS1]
 drawings = [element.drawing for element in QS1]
 
@@ -63,6 +63,12 @@ print("Mean Intersection over Union: ", mean_IoU)
 
 for im in range(len(drawings)):
     cv2.imwrite("outputs/" + str(im) + ".png", drawings[im])
+"""
+QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", bbox=True, multires=2)]
+
+groundTruth2 = get_groundtruth("datasets/qsd2_w2/gt_corresps.pkl")
+
+DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=2)]
 
 
 
