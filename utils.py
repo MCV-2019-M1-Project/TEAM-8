@@ -5,6 +5,7 @@ import cv2
 from mask_metrics import MaskMetrics
 import distance as dist
 
+
 def calc_similarities(measure, db, qs, show_progress=False):
     """
     Returns an array of size (qs_size x db_size)
@@ -81,12 +82,14 @@ def getgradient(img):
 
 
 def lapl_at_index(source, index):
-    i,j = index
-    val = (4 * source[i,j])    \
-           - (1 * source[i+1, j]) \
-           - (1 * source[i-1, j]) \
-           - (1 * source[i, j+1]) \
-           - (1 * source[i, j-1])
+    i, j = index
+    val = (
+        (4 * source[i, j])
+        - (1 * source[i + 1, j])
+        - (1 * source[i - 1, j])
+        - (1 * source[i, j + 1])
+        - (1 * source[i, j - 1])
+    )
     return val
 
 

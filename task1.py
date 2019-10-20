@@ -24,7 +24,10 @@ def find_img_corresp(QS, groundTruth, masking, k):
     if masking:
         gt_masks = MaskDataset("datasets/qsd2_w1")
         mask_dataset = Dataset("datasets/qsd2_w1", masking=True)
-        predicted_masks = [cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1] for i, _ in enumerate(mask_dataset)]
+        predicted_masks = [
+            cv2.threshold(mask_dataset.get_mask(i), 128, 1, cv2.THRESH_BINARY)[1]
+            for i, _ in enumerate(mask_dataset)
+        ]
 
         mask_metrics = get_mask_metrics(predicted_masks, gt_masks, True)
 
@@ -33,11 +36,17 @@ def find_img_corresp(QS, groundTruth, masking, k):
         print("F1-score: " + str(mask_metrics["f1_score"]))
 
 
-QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True, multires=4)]
+QS2 = [
+    normalize_hist(qs_hist)
+    for qs_hist in HistDataset("datasets/qsd2_w1", masking=True, multires=4)
+]
 
 groundTruth2 = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
 
-DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=4)]
+DB = [
+    normalize_hist(db_hist)
+    for db_hist in HistDataset("datasets/DDBB", masking=False, multires=4)
+]
 
 k = 10
 
