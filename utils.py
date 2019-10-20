@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 import pickle
 import cv2
 from mask_metrics import MaskMetrics
-
+import distance as dist
 
 def calc_similarities(measure, db, qs, show_progress=False):
     """
@@ -66,3 +66,34 @@ def get_mask_metrics(pred, gt, show_progress):
     metrics_dict["recall"] = results[1]
     metrics_dict["f1_score"] = results[2]
     return metrics_dict
+
+
+def get_mean_IoU(gts, preds):
+    result = 0
+    for x in range(len(gts)):
+        result += dist.intersection_over_union(gts[x], preds[x])
+    return result / len(preds)
+
+
+def getgradient(img):
+    x, y = np.gradient(img)
+    return np.hypot(x, y).astype(np.uint8)
+
+
+def lapl_at_index(source, index):
+    i,j = index
+    val = (4 * source[i,j])    \
+           - (1 * source[i+1, j]) \
+           - (1 * source[i-1, j]) \
+           - (1 * source[i, j+1]) \
+           - (1 * source[i, j-1])
+    return val
+
+
+def resize(img, percent):
+    scale_percent = percent  # percent of original size
+    width = int(img.shape[1] * scale_percent / 100)
+    height = int(img.shape[0] * scale_percent / 100)
+    dim = (width, height)
+
+    return cv2.resize(img, dim, interpolation=cv2.INTER_AREA)

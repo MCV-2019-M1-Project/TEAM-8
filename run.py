@@ -10,7 +10,9 @@ from utils import (
     get_groundtruth,
     normalize_hist,
     get_mask_metrics,
+    get_mean_IoU
 )
+import numpy as np
 
 
 # def find_img_corresp(QS, groundTruth, masking):
@@ -50,17 +52,17 @@ from utils import (
 # print("Analyzing QS2")
 # find_img_corresp(QS2, groundTruth2, True)
 
+QS1 = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
+boundingxys = [element.boundingxy for element in QS1]
+drawings = [element.drawing for element in QS1]
 
-#To print the images just turn Save to True and create outputs directory
-Save = False
-BoundingBoxPoints = [text_removal.getpoints2(im, Save) for im in text_removal.text_remover("datasets/qsd1_w2")]
-if Save:
-    for im in range(len(BoundingBoxPoints)):
-        print(im)
-        cv2.imwrite("outputs/"+str(im)+".png",BoundingBoxPoints[im])
-else:
-    print("The bounding box points by [tlx,tly,brx,bry] :")
-    print(BoundingBoxPoints)
+gt = np.asarray(get_groundtruth("datasets/qsd1_w2/text_boxes.pkl")).squeeze()
+mean_IoU = get_mean_IoU(gt, boundingxys)
+
+print("Mean Intersection over Union: ", mean_IoU)
+
+for im in range(len(drawings)):
+    cv2.imwrite("outputs/" + str(im) + ".png", drawings[im])
 
 
 

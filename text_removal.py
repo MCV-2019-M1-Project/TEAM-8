@@ -2,13 +2,15 @@ import dataset
 import glob
 import numpy as np
 import cv2
+import utils
+import math
 class text_remover(dataset.Dataset):
     
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.data = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-       
         return super().__getitem__(idx)  
 
 def getpoints(im):
@@ -30,7 +32,8 @@ def getpoints(im):
     final=sure_bg1-(sure_bg3-sure_bg1-sure_bg2)
     return final
 
-def getpoints2(im,save):
+
+def getpoints2(im):
     # print(im.shape[0])
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     imager=im[:,:,0]
@@ -60,6 +63,8 @@ def getpoints2(im,save):
     boundRect = [None]*len(contours)
     drawing = np.zeros((canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8)
     drawing[:,:,0] = gray
+    drawing[:,:,1] = gray
+    drawing[:,:,2] = gray
     max_area=0
     max=0
     for i, c in enumerate(contours):
@@ -76,12 +81,121 @@ def getpoints2(im,save):
         cv2.rectangle(drawing, (int(boundRect[-1][0]), int(boundRect[-1][1])), \
           (int(boundRect[-1][0]+boundRect[-1][2]), int(boundRect[-1][1]+boundRect[-1][3])), (0, 255, 0), 2)
 
-    boundingxy=[boundRect[-1][0],boundRect[-1][1],boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
-    #Coordinates [tlx,tly,brx,bry]
-    if save:
-        return drawing
+    boundingxy = [boundRect[-1][0], boundRect[-1][1], boundRect[-1][0] + boundRect[-1][2], boundRect[-1][1] + boundRect[-1][3]]
+
+    ## Betos Post-Processing from here on
+
+    # Otsu's thresholding
+    imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
+    ima, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    minv = np.min(th2)
+    maxv = np.max(th2)
+    meanv = np.mean(th2)
+
+    diffmin = abs(meanv - minv)
+    diffmax = abs(meanv - maxv)
+
+    th3 = np.copy(th2)
+
+    if diffmin < diffmax:
+        imb, th3 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    maxkernel = 0
+
+    for i in range(0, imx.shape[0]):
+        for j in range(0, imx.shape[1]):
+            if th3[i, j] == 0:
+                for v in range(1, 15, 2):
+                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (v, v))
+                    w = math.floor(v / 2)
+                    roi = th3[i - w:i + w + 1, j - w:j + w + 1]
+
+                    if roi.shape == kernel.shape:
+                        k = (roi * kernel).sum()
+                        if k == 0:
+                            if v > maxkernel:
+                                maxkernel = v
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (maxkernel + 6, maxkernel + 6))
+
+    if diffmin < diffmax:
+        gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
     else:
-        return boundingxy
+        gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+
+    scale = 1
+    delta = 0
+    ddepth = cv2.CV_16S
+
+    grad_x = cv2.Sobel(gray, ddepth, 1, 0, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
+    grad_y = cv2.Sobel(gray, ddepth, 0, 1, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
+
+    abs_grad_x = cv2.convertScaleAbs(grad_x)
+    abs_grad_y = cv2.convertScaleAbs(grad_y)
+
+    grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
+    thresh = 30
+
+    grad[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+
+    def moveboundy(maxsize, b1, b2, b3, pad, action, diff=-1):
+        for i in range(b1, min(b1 + pad, maxsize), action):
+            broken = False
+            for j in range(b2, b3):
+                if grad[i, j] > thresh:
+                    broken = True
+                    if diff == 1:
+                        b1 -= 2 * action
+                    break
+            if broken:
+                break
+            else:
+                b1 += action
+                diff = 1
+        return (b1, diff)
+
+    def moveboundx(b1, b2, b3, pad, action):
+        for j in range(b1, b1 + pad, action):
+            broken = False
+            for i in range(b2, b3):
+                if grad[i, j] > thresh:
+                    broken = True
+                    break
+            if broken:
+                break
+            else:
+                b1 += action
+        return b1
+
+    diff1 = 0
+    boundingxy[1], diff1 = moveboundy(999999999, boundingxy[1], boundingxy[0], boundingxy[2], -50, -1, diff1)
+    diff2 = 0
+    boundingxy[3], diff2 = moveboundy(grad.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 50, 1, diff2)
+    boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], -50, -1)
+    boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], 50, 1)
+
+    drawing = cv2.rectangle(drawing, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), (0, 255, 255), 2)
+
+    if diff1 == 1:
+        boundingxy[1] -= 2
+
+    if diff2 == 1:
+        boundingxy[3] += 2
+
+    if False:
+        cv2.imshow("b", utils.resize(im, 50))
+        cv2.imshow("c", utils.resize(drawing, 50))
+        cv2.waitKey(0)
+
+    class Result:
+        def __init__(self, boundingxy, drawing):
+            self.boundingxy = boundingxy
+            self.drawing = drawing
+
+    print("done")
+    return Result(boundingxy, drawing)
+
 
 def getpoints3(im):
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)

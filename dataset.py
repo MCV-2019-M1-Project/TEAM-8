@@ -7,9 +7,10 @@ import cv2
 class Dataset:
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.data = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-        return cv2.imread(self.paths[idx])
+        return self.data[idx]
 
     def __len__(self):
         return len(self.paths)
@@ -73,7 +74,6 @@ class HistDataset(Dataset):
         mask = None if not self.masking else self.calc_mask(img)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        img = lab
 
         if self.dimensions == 2:
             hist = cv2.calcHist([hsv], [0, 1], mask, [180/8, 256/8], [0, 180, 0, 256])
@@ -83,7 +83,7 @@ class HistDataset(Dataset):
             return onedhist
 
         if self.dimensions == 3:
-            hist = cv2.calcHist([img], [0, 1, 2], mask, [10, 10, 10], [0, 256, 0, 256, 0, 256])
+            hist = cv2.calcHist([img], [0, 1, 2], mask, [8, 8, 8], [0, 256, 0, 256, 0, 256])
             hist = hist/hist.sum(axis=-1, keepdims=True)
             hist[np.isnan(hist)] = 0
             onedhist = np.reshape(hist, [-1])
