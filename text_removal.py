@@ -92,10 +92,10 @@ def getpoints2(im):
         )
 
     boundingxy = [
-        boundRect[-1][0],
-        boundRect[-1][1],
-        boundRect[-1][0] + boundRect[-1][2],
-        boundRect[-1][1] + boundRect[-1][3],
+        boundRect[-1][0] + 5,
+        boundRect[-1][1] + 5,
+        boundRect[-1][0] + boundRect[-1][2] - 5,
+        boundRect[-1][1] + boundRect[-1][3] - 5,
     ]
 
     # Betos Post-Processing from here on
@@ -168,7 +168,7 @@ def getpoints2(im):
     abs_grad_y = cv2.convertScaleAbs(grad_y)
 
     grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
-    thresh = 30
+    thresh = 15
 
     grad[boundingxy[1] : boundingxy[3], boundingxy[0] : boundingxy[2]] = 0
 
