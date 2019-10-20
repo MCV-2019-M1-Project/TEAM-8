@@ -1,6 +1,7 @@
 """
 Example usage: python run.py task2
 """
+import pickle
 
 import numpy as np
 import cv2
@@ -29,10 +30,7 @@ def eval_masks(QS, MS_GT):
         raise ValueError("Query set size doesn't match ground truth size")
     mask_dataset = Dataset("datasets/qsd2_w1", masking=True)
     print("Predicting masks")
-    predicted_masks = [
-        mask_dataset.get_mask(i) // 255
-        for i in tqdm(range(len(QS)))
-    ]
+    predicted_masks = [mask_dataset.get_mask(i) // 255 for i in tqdm(range(len(QS)))]
     print("Calculating mask metrics")
     mask_metrics = get_mask_metrics(predicted_masks, MS_GT, True)
 
@@ -67,11 +65,6 @@ class Solution:
         print("Analyzing QS2")
         find_img_corresp(QS2, GT, DB, k)
 
-    def eval_masks(self):
-        QS = Dataset(self.QSD2_W1, masking=True)
-        GT = MaskDataset(self.QSD2_W1)
-        eval_masks(QS, GT)
-
     def task4(self):
         print("Computing bounding boxes")
         QS1 = [
@@ -88,6 +81,32 @@ class Solution:
 
         for im in range(len(drawings)):
             cv2.imwrite("outputs/" + str(im) + ".png", drawings[im])
+
+    def task5(self):
+        # Get text box pkl
+        QS = [
+            text_removal.getpoints2(im)
+            for im in text_removal.text_remover(self.QSD1_W2)
+        ]
+        boundingxys = [[element.boundingxy] for element in QS]
+        with open("QSD1/text_boxes.pkl", "wb") as f:
+            pickle.dump(boundingxys, f)
+
+        # Get text box pngs TODO bbox
+        QS1 = HistDataset("datasets/qsd1_w2", bbox=True, multires=2)
+        predicted_masks = [QS1.get_mask(idx) for idx in range(len(QS1))]
+        for i, img in enumerate(predicted_masks):
+            filename = "QSD1/boxes/" + f"{i:05d}" + ".png"
+            cv2.imwrite(filename, img)
+
+        gt = np.asarray(get_groundtruth("datasets/qsd1_w2/text_boxes.pkl")).squeeze()
+        mean_IoU = get_mean_IoU(gt, boundingxys)
+        print(f"Mean IoU: {mean_IoU}")
+
+    def eval_masks(self):
+        QS = Dataset(self.QSD2_W1, masking=True)
+        GT = MaskDataset(self.QSD2_W1)
+        eval_masks(QS, GT)
 
 
 if __name__ == "__main__":

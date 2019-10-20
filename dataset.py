@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 
 from utils import binsearch, normalize_hist
+import text_removal
 
 
 class Mask:
@@ -109,9 +110,20 @@ class Mask:
         return m
 
 
+class BBox:
+    def get_bbox(self, img):
+        base_mask = np.ones_like(img)
+        result = text_removal.getpoints2(img)
+        bbox_coords = result.boundingxy
+        base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
+        return np.uint8(base_mask) * 255
+
+
 class Dataset:
-    def __init__(self, path, masking=False):
+    def __init__(self, path, masking=False, bbox=False):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.masking = masking
+        self.bbox = bbox
 
     def __getitem__(self, idx):
         return cv2.imread(self.paths[idx])
@@ -119,8 +131,20 @@ class Dataset:
     def __len__(self):
         return len(self.paths)
 
+    def __safegetitem(self, idx):
+        return cv2.imread(self.paths[idx])
+
     def get_mask(self, idx):
-        return Mask(self[idx]).get_mask()
+        if self.masking or self.bbox:
+            img = self.__safegetitem(idx)
+            zeros = np.zeros_like(img)
+            mask = (
+                Mask(img).get_mask() if self.masking else zeros
+            )
+            mask += BBox().get_bbox(img) if self.bbox else zeros
+            mask[mask != 0] = 255
+            return mask
+        return None
 
 
 class HistDataset(Dataset):
@@ -130,17 +154,9 @@ class HistDataset(Dataset):
     """
 
     def __init__(
-        self,
-        *args,
-        caching=True,
-        masking=False,
-        dimensions=1,
-        block=0,
-        multires=0,
-        **kwargs,
+        self, *args, caching=True, dimensions=1, block=0, multires=0, **kwargs
     ):
         self.caching = caching
-        self.masking = masking
         self.dimensions = dimensions
         self.block = block
         self.multires = multires
@@ -149,9 +165,10 @@ class HistDataset(Dataset):
             self.cache = dict()
         super().__init__(*args, **kwargs)
 
-    def calc_hist(self, img):
+    def calc_hist(self, idx):
+        img = super().__getitem__(idx)
+        mask = self.get_mask(idx)
 
-        mask = None if not self.masking else Mask(img).get_mask()
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         img = hsv
@@ -189,7 +206,7 @@ class HistDataset(Dataset):
                     for x in range(0, imgwidth, N):
                         for i in range(3):
                             submask = (
-                                mask[y : y + M, x : x + N] if self.masking else None
+                                mask[y : y + M, x : x + N] if mask else None
                             )
                             hists.append(
                                 cv2.calcHist(
@@ -212,7 +229,7 @@ class HistDataset(Dataset):
                 for i in range(3):
                     submask = (
                         cv2.resize(mask, (imgwidth, imgheight))
-                        if self.masking
+                        if self.mask
                         else None
                     )
                     downscale = cv2.resize(img, (imgwidth, imgheight))
@@ -236,7 +253,7 @@ class HistDataset(Dataset):
         )
 
     def _calculate(self, idx):
-        self.cache[idx] = normalize_hist(self.calc_hist(super().__getitem__(idx)))
+        self.cache[idx] = normalize_hist(self.calc_hist(idx))
         return self.cache[idx]
 
     def __getitem__(self, idx):
