@@ -235,7 +235,6 @@ def getpoints2(im):
             self.boundingxy = boundingxy
             self.drawing = drawing
 
-    print("done")
     return Result(boundingxy, drawing)
 
 

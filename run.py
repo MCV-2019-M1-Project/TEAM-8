@@ -72,10 +72,11 @@ class Solution:
         GT = MaskDataset(self.QSD2_W1)
         eval_masks(QS, GT)
 
-    def eddie(self):
+    def task4(self):
+        print("Computing bounding boxes")
         QS1 = [
             text_removal.getpoints2(im)
-            for im in text_removal.text_remover(self.QSD1_W2)
+            for im in tqdm(text_removal.text_remover(self.QSD1_W2))
         ]
         boundingxys = [element.boundingxy for element in QS1]
         drawings = [element.drawing for element in QS1]
