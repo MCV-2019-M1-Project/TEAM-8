@@ -15,16 +15,17 @@ from utils import (
 import numpy as np
 
 
-# def find_img_corresp(QS, groundTruth, masking):
-#     sims = calc_similarities(dist.canberra, DB, QS, True)
-#     tops = get_tops(sims, k)
-#     mapAtK = metrics.mapk(groundTruth, tops, k)
-#
-#     print(str(tops[0]))
-#     print(str(tops[1]))
-#     print(str(tops[2]))
-#     print("Map@k is " + str(mapAtK))
-#
+def find_img_corresp(QS, groundTruth, masking):
+    k = 10
+    sims = calc_similarities(dist.canberra, DB, QS, True)
+    tops = get_tops(sims, k)
+    mapAtK = metrics.mapk(groundTruth, tops, k)
+
+    print(str(tops[0]))
+    print(str(tops[1]))
+    print(str(tops[2]))
+    print("Map@k is " + str(mapAtK))
+
 #     if masking:
 #         gt_masks = MaskDataset("datasets/qsd2_w1")
 #         mask_dataset = HistDataset("datasets/qsd2_w1", masking=True)
@@ -35,7 +36,7 @@ import numpy as np
 #         print("Precision: " + str(mask_metrics["precision"]))
 #         print("Recall: " + str(mask_metrics["recall"]))
 #         print("F1-score: " + str(mask_metrics["f1_score"]))
-#
+
 #
 # groundTruth1 = get_groundtruth("datasets/qsd1_w1/gt_corresps.pkl")
 # groundTruth2 = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
@@ -51,10 +52,17 @@ import numpy as np
 #
 # print("Analyzing QS2")
 # find_img_corresp(QS2, groundTruth2, True)
+QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd1_w2", bbox=True, multires=2)]
+DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=2)]
+groundTruth2 = get_groundtruth("datasets/qsd1_w2/gt_corresps.pkl")
+find_img_corresp(QS1, groundTruth, True)
 
-"""QS1 = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qsd1_w2")]
-boundingxys = [element.boundingxy for element in QS1]
-drawings = [element.drawing for element in QS1]
+
+
+exit()
+QS = [text_removal.getpoints2(im) for im in text_removal.text_remover("datasets/qst1_w2")]
+boundingxys = [[element.boundingxy] for element in QS]
+drawings = [element.drawing for element in QS]
 
 gt = np.asarray(get_groundtruth("datasets/qsd1_w2/text_boxes.pkl")).squeeze()
 mean_IoU = get_mean_IoU(gt, boundingxys)
@@ -63,7 +71,7 @@ print("Mean Intersection over Union: ", mean_IoU)
 
 for im in range(len(drawings)):
     cv2.imwrite("outputs/" + str(im) + ".png", drawings[im])
-"""
+
 QS1 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", bbox=True, multires=2)]
 
 groundTruth2 = get_groundtruth("datasets/qsd2_w2/gt_corresps.pkl")

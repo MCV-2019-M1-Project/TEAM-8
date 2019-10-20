@@ -71,11 +71,12 @@ class HistDataset(Dataset):
 
         return image_countours
 
-    def calc_bbox_mask(self, img):
-        base_mask = np.ones((np.shape(img)[0], np.shape(img)[1]))
-        bbox_coords = text_removal.getpoints2(img)
-        base_mask[bbox_coords[0]: bbox_coords[2], bbox_coords[1]:bbox_coords[3]] = 0
-        unique, counts = np.unique(base_mask)
+    def calc_bbox_as_mask(self, img):
+        base_mask = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        base_mask[:, :] = 1
+        result = text_removal.getpoints2(img)
+        bbox_coords = result.boundingxy
+        base_mask[bbox_coords[1]:bbox_coords[3], bbox_coords[0]: bbox_coords[2]] = 0
         return base_mask
 
     def calc_hist(self, img):
@@ -83,7 +84,7 @@ class HistDataset(Dataset):
         if self.masking:
             mask = self.calc_mask(img)
         elif self.bbox:
-            mask = self.calc_bbox_mask(img)
+            mask = self.calc_bbox_as_mask(img)
         else:
             mask = None
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
