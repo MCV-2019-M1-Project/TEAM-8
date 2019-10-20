@@ -22,9 +22,13 @@ class HistDataset(Dataset):
         and applies a mask on from RGB to HLS on the Histogram calculation
     """
 
-    def __init__(self, *args, caching=True, masking=False, **kwargs):
+    def __init__(self, *args, caching=True, masking=False, dimensions=1, block=0, multires=0, **kwargs):
         self.caching = caching
         self.masking = masking
+        self.dimensions = dimensions
+        self.block = block
+        self.multires = multires
+
         if caching:
             self.cache = dict()
         super().__init__(*args, **kwargs)
@@ -70,6 +74,54 @@ class HistDataset(Dataset):
         mask = None if not self.masking else self.calc_mask(img)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+
+        if self.dimensions == 2:
+            hist = cv2.calcHist([hsv], [0, 1], mask, [180/4, 256/4], [0, 180, 0, 256])
+            hist = hist / hist.sum(axis=-1, keepdims=True)
+            hist[np.isnan(hist)] = 0
+            onedhist = np.reshape(hist, [-1])
+            return onedhist
+
+        if self.dimensions == 3:
+            hist = cv2.calcHist([img], [0, 1, 2], mask, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+            hist = hist/hist.sum(axis=-1, keepdims=True)
+            hist[np.isnan(hist)] = 0
+            onedhist = np.reshape(hist, [-1])
+            return onedhist
+
+        if self.block > 1:
+            hists = []
+            for i in range(3):
+                hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
+            for divisions in range(1, self.block+1):
+                imgheight = img.shape[0]
+                imgwidth = img.shape[1]
+
+                y1 = 0
+                M = imgheight // 2**divisions
+                N = imgwidth // 2**divisions
+
+                for y in range(0, imgheight, M):
+                    for x in range(0, imgwidth, N):
+                        y1 = y + M
+                        x1 = x + N
+                        for i in range(3):
+                            submask = mask[y:y + M, x:x + N] if self.masking else None
+                            hists.append(cv2.calcHist([img[y:y + M, x:x + N]], [i], submask, [256], [0, 256]))
+            return hists
+
+        if self.multires > 1:
+            hists = []
+            for i in range(3):
+                hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
+            for res in range(2, self.multires+1):
+                imgheight = img.shape[0] // res
+                imgwidth = img.shape[1] // res
+                for i in range(3):
+                    submask = cv2.resize(mask, (imgwidth, imgheight)) if self.masking else None
+                    downscale = cv2.resize(img, (imgwidth, imgheight))
+                    hists.append(cv2.calcHist([downscale], [i], submask, [256], [0, 256]))
+            return hists
 
         return np.array(
             [
