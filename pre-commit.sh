@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # to enable:
 # cp pre-commit.sh .git/hooks/pre-commit
