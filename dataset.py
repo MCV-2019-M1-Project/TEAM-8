@@ -3,9 +3,110 @@ import glob
 import numpy as np
 import cv2
 
+from utils import binsearch
+
+
+class Mask:
+    """
+    Helper class to make a mask out of image
+    Proposes various masks, run the tests and picks the best one.
+    """
+
+    def __init__(self, img):
+        if len(img.shape) > 2:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        self.img = img
+        self.std_thresh = 60 / 100
+        self.overall_std = np.std(img)
+
+        border_mask = np.zeros_like(img)
+        border_mask[:2, :] = 1
+        border_mask[-2:, :] = 1
+        border_mask[:, -2:] = 1
+        border_mask[:, :2] = 1
+        border_mask = border_mask.astype(bool)
+        self.borders_std = np.std(img[border_mask])
+        self.borders_mean = np.mean(img[border_mask])
+
+    def horizontal_mask(self, img, end, begin=0):
+        if begin > img.shape[0]:
+            raise IndexError
+        res = np.zeros_like(img)
+        res[begin:end, :] = 1
+        return res.astype(bool)
+
+    def check_std(self, img, mask):
+        test_vals = img[mask]
+        target_std = self.overall_std * self.std_thresh
+        return np.std(test_vals) < target_std
+
+    def check_mean(self, img, mask):
+        test_vals = img[mask]
+        return abs(np.mean(test_vals) - self.borders_mean) < 2 * self.borders_std
+
+    def check_with_border(self, img, mask, thresh=1.8):
+        test_vals = img[mask]
+        target_std = self.borders_std * thresh
+        return np.std(test_vals) < target_std
+
+    def check_tests(self, img, maybe_mask):
+        return self.check_std(img, maybe_mask)  # & self.check_mean(img, maybe_mask)
+
+    def get_one_edge(self, rotation):
+        rimg = np.rot90(self.img, rotation)
+        beg, end = 0, rimg.shape[0] // 2
+        res = binsearch(
+            beg,
+            end,
+            lambda mid: self.check_tests(rimg, self.horizontal_mask(rimg, mid)),
+        )
+        res = binsearch(
+            beg,
+            res,
+            lambda mid: self.check_with_border(
+                rimg, self.horizontal_mask(rimg, mid, mid - 5)
+            ),
+        )
+        return np.rot90(self.horizontal_mask(rimg, res), 4 - rotation), res
+
+    def get_middle(self, img, begin, end, step=None):
+        rimg = np.rot90(img, 1)
+        step = step or rimg.shape[0] // 20
+        for beg in range(begin, end - step, step):
+            tmp_mask = self.horizontal_mask(rimg, beg + step, beg)
+            if self.check_with_border(rimg, tmp_mask, 1) and self.check_std(rimg, tmp_mask):
+                return beg + int(step / 2)
+        return None
+
+    def get_mask_single(self, numbers=False):
+        masks = [self.get_one_edge(rot) for rot in range(4)]
+        res = masks[0][0]
+        cutpts = []
+        for mask, cutpt in masks:
+            res = res | mask
+            cutpts.append(cutpt)
+        res = ~res
+        res = np.uint8(res) * 255
+        return (res, cutpts) if numbers else res
+
+    def get_mask(self):
+        m, cut = self.get_mask_single(True)
+        _, q, _, p = cut
+        q = self.img.shape[1] - q
+        x = self.get_middle(self.img, p, q)
+        # print(f"BEG: {p} END: {q} X {x}")
+        if x is not None:
+            x = self.img.shape[1] - x
+            m1 = Mask(self.img[:, :x]).get_mask_single()
+            m2 = Mask(self.img[:, x:]).get_mask_single()
+            res = np.concatenate((m1, m2), axis=1)
+            # print(f"IMG: {self.img.shape}, MASK {res.shape}")
+            return res
+        return m
+
 
 class Dataset:
-    def __init__(self, path):
+    def __init__(self, path, masking=False):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
         self.data = [cv2.imread(path) for path in self.paths]
 
@@ -14,6 +115,9 @@ class Dataset:
 
     def __len__(self):
         return len(self.paths)
+
+    def get_mask(self, idx):
+        return Mask(self[idx]).get_mask()
 
 
 class HistDataset(Dataset):
@@ -33,45 +137,9 @@ class HistDataset(Dataset):
             self.cache = dict()
         super().__init__(*args, **kwargs)
 
-    def calc_mask(self, img):
-        im = cv2.GaussianBlur(img, (5, 5), 0)
-
-        gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        ret, thresh = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
-        )
-
-        # noise removal
-        kernel = np.ones((3, 3), np.uint8)
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
-        # sure background area
-        sure_bg = cv2.dilate(opening, kernel, iterations=3)
-        # Finding sure foreground area
-        dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-        ret, sure_fg = cv2.threshold(dist_transform, 0.5 * dist_transform.max(), 255, 0)
-
-        # Finding unknown region
-        sure_fg = np.uint8(sure_fg)
-        unknown = cv2.subtract(sure_bg, sure_fg)
-        combi = unknown + sure_fg
-        combi[combi > 255] = 255
-
-        i, j = np.where(combi == 255)
-        k, d = np.where(combi[:, 0:150] == 255)
-
-        points = np.array(
-            [(j[-1], i[-1]), (j[0], i[0]), (d[0], k[0]), (d[-1], k[-1])]
-        )
-
-        image_countours = cv2.fillPoly(
-            combi, np.int32([points]), (255, 255, 255), 8, 0, None
-        )
-
-        return image_countours
-
     def calc_hist(self, img):
 
-        mask = None if not self.masking else self.calc_mask(img)
+        mask = None if not self.masking else Mask(img).get_mask()
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         img = hsv
@@ -146,9 +214,6 @@ class HistDataset(Dataset):
         if self.caching:
             return self.cache[idx] if idx in self.cache else self._calculate(idx)
         return self.calc_hist(super().__getitem__(idx))
-
-    def get_mask(self, idx):
-        return self.calc_mask(super().__getitem__(idx))
 
 
 class MaskDataset:
