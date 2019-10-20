@@ -1,7 +1,9 @@
+import pickle
+
+import cv2
 import numpy as np
 from tqdm.auto import tqdm
-import pickle
-import cv2
+
 from mask_metrics import MaskMetrics
 import distance as dist
 

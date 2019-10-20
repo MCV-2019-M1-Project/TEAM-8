@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import cv2
 
-from utils import binsearch
+from utils import binsearch, normalize_hist
 
 
 class Mask:
@@ -42,12 +42,16 @@ class Mask:
 
     def check_mean(self, img, mask):
         test_vals = img[mask]
-        return abs(np.mean(test_vals) - self.borders_mean) < 2 * self.borders_std
+        return (
+            True
+            if test_vals.size == 0
+            else abs(np.mean(test_vals) - self.borders_mean) < 2 * self.borders_std
+        )
 
     def check_with_border(self, img, mask, thresh=1.8):
         test_vals = img[mask]
         target_std = self.borders_std * thresh
-        return np.std(test_vals) < target_std
+        return True if test_vals.size == 0 else np.std(test_vals) < target_std
 
     def check_tests(self, img, maybe_mask):
         return self.check_std(img, maybe_mask)  # & self.check_mean(img, maybe_mask)
@@ -96,13 +100,11 @@ class Mask:
         _, q, _, p = cut
         q = self.img.shape[1] - q
         x = self.get_middle(self.img, p, q)
-        # print(f"BEG: {p} END: {q} X {x}")
         if x is not None:
             x = self.img.shape[1] - x
             m1 = Mask(self.img[:, :x]).get_mask_single()
             m2 = Mask(self.img[:, x:]).get_mask_single()
             res = np.concatenate((m1, m2), axis=1)
-            # print(f"IMG: {self.img.shape}, MASK {res.shape}")
             return res
         return m
 
@@ -110,10 +112,9 @@ class Mask:
 class Dataset:
     def __init__(self, path, masking=False):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
-        self.data = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return cv2.imread(self.paths[idx])
 
     def __len__(self):
         return len(self.paths)
@@ -235,7 +236,7 @@ class HistDataset(Dataset):
         )
 
     def _calculate(self, idx):
-        self.cache[idx] = self.calc_hist(super().__getitem__(idx))
+        self.cache[idx] = normalize_hist(self.calc_hist(super().__getitem__(idx)))
         return self.cache[idx]
 
     def __getitem__(self, idx):
