@@ -35,11 +35,11 @@ def find_img_corresp(QS, groundTruth, masking, k):
         print("F1-score: " + str(mask_metrics["f1_score"]))
 
 
-QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True, multires=3)]
+QS2 = [normalize_hist(qs_hist) for qs_hist in HistDataset("datasets/qsd2_w1", masking=True, multires=4)]
 
 groundTruth2 = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
 
-DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=3)]
+DB = [normalize_hist(db_hist) for db_hist in HistDataset("datasets/DDBB", masking=False, multires=4)]
 
 k = 10
 
