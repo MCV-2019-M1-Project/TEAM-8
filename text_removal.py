@@ -50,7 +50,7 @@ def getpoints2(im):
     kernel = np.ones((int((im.shape[0]) / 350), int((im.shape[1]) / 35)), np.uint8)
 
     denoised = cv2.erode(mask1, kernel, iterations=5)
-    denoised = cv2.erode(denoised, kernel, iterations=1)
+    # denoised = cv2.erode(denoised, kernel, iterations=1)
     denoised = cv2.dilate(denoised, kernel, iterations=3)
     denoised = cv2.dilate(denoised, kernel, iterations=2)
 
@@ -75,6 +75,9 @@ def getpoints2(im):
         if (area > max_area) & (boundRect[i][3] < boundRect[i][2]):
             max = boundRect[i]
             max_area = area
+        # FIXME(Beto): If there're two areas of the same size Eddie says it's not worki
+        if area == max_area:
+            max = boundRect[i]
         boundRect[i] = max
 
     for i in range(len(contours)):

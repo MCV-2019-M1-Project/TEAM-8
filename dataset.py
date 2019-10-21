@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import cv2
 
-from utils import binsearch, normalize_hist
+from utils import binsearch, normalize_hist, show_img
 import text_removal
 
 
@@ -136,6 +136,7 @@ class BBox:
     def get_bbox(self, img):
         base_mask = np.ones_like(img[:, :, 0])
         result = text_removal.getpoints2(img)
+        show_img(result.drawing)
         bbox_coords = result.boundingxy
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
         return np.uint8(base_mask) * 255
