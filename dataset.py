@@ -140,6 +140,11 @@ class BBox:
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
         return np.uint8(base_mask) * 255
 
+    def get_bbox_cords(self, img):
+        result = text_removal.getpoints2(img)
+        bbox_coords = result.boundingxy
+        return bbox_coords
+
 
 class Dataset:
     def __init__(self, path, masking=False, bbox=False):
@@ -156,9 +161,12 @@ class Dataset:
     def get_mask(self, idx):
         if self.masking or self.bbox:
             img = Dataset.__getitem__(self, idx)
-            zeros = np.zeros_like(img)
-            mask = Mask(img).get_mask() if self.masking else zeros
-            mask += BBox().get_bbox(img) if self.bbox else zeros
+            mask = np.ones_like(img[:, :, 0]).astype(bool)
+            if self.masking:
+                mask = mask & Mask(img).get_mask().astype(bool)
+            if self.bbox:
+                mask = mask & BBox().get_bbox(img).astype(bool)
+            mask = mask.astype(int)
             mask[mask != 0] = 255
             return mask
         return None
