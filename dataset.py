@@ -3,7 +3,8 @@ import glob
 import numpy as np
 import cv2
 
-from utils import binsearch
+from utils import binsearch, normalize_hist
+import text_removal
 
 
 class Mask:
@@ -42,12 +43,16 @@ class Mask:
 
     def check_mean(self, img, mask):
         test_vals = img[mask]
-        return abs(np.mean(test_vals) - self.borders_mean) < 2 * self.borders_std
+        return (
+            True
+            if test_vals.size == 0
+            else abs(np.mean(test_vals) - self.borders_mean) < 2 * self.borders_std
+        )
 
     def check_with_border(self, img, mask, thresh=1.8):
         test_vals = img[mask]
         target_std = self.borders_std * thresh
-        return np.std(test_vals) < target_std
+        return True if test_vals.size == 0 else np.std(test_vals) < target_std
 
     def check_tests(self, img, maybe_mask):
         return self.check_std(img, maybe_mask)  # & self.check_mean(img, maybe_mask)
@@ -96,30 +101,75 @@ class Mask:
         _, q, _, p = cut
         q = self.img.shape[1] - q
         x = self.get_middle(self.img, p, q)
-        # print(f"BEG: {p} END: {q} X {x}")
         if x is not None:
             x = self.img.shape[1] - x
             m1 = Mask(self.img[:, :x]).get_mask_single()
             m2 = Mask(self.img[:, x:]).get_mask_single()
             res = np.concatenate((m1, m2), axis=1)
-            # print(f"IMG: {self.img.shape}, MASK {res.shape}")
             return res
         return m
 
 
+class Splitter:
+    def __init__(self, img):
+        self.img = img
+        mask = Mask(img)
+        self.single_mask, cut = mask.get_mask_single(True)
+        _, q, _, p = cut
+        q = self.img.shape[1] - q
+        self.x = mask.get_middle(self.img, p, q)
+
+    def __iter__(self):
+        x = self.x
+        if x is None:
+            yield self.single_mask
+        else:
+            left = np.zeros_like(self.img[:, :, 0])
+            left[:, :x] += Mask(self.img[:, :x]).get_mask_single()
+            yield left
+            right = np.zeros_like(self.img[:, :, 0])
+            right[:, x:] += Mask(self.img[:, x:]).get_mask_single()
+            yield right
+
+
+class BBox:
+    def get_bbox(self, img):
+        base_mask = np.ones_like(img[:, :, 0])
+        result = text_removal.getpoints2(img)
+        bbox_coords = result.boundingxy
+        base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
+        return np.uint8(base_mask) * 255
+
+
 class Dataset:
-    def __init__(self, path, masking=False):
+    def __init__(self, path, masking=False, bbox=False):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
-        self.data = [cv2.imread(path) for path in self.paths]
+        self.masking = masking
+        self.bbox = bbox
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return cv2.imread(self.paths[idx])
 
     def __len__(self):
         return len(self.paths)
 
     def get_mask(self, idx):
-        return Mask(self[idx]).get_mask()
+        if self.masking or self.bbox:
+            img = Dataset.__getitem__(self, idx)
+            zeros = np.zeros_like(img)
+            mask = Mask(img).get_mask() if self.masking else zeros
+            mask += BBox().get_bbox(img) if self.bbox else zeros
+            mask[mask != 0] = 255
+            return mask
+        return None
+
+    def get_masks(self, idx):
+        img = Dataset.__getitem__(self, idx)
+        bbox = BBox().get_bbox(img)
+        for mask in Splitter(img):
+            res = mask + bbox
+            res[res != 0] = 255
+            yield res
 
 
 class HistDataset(Dataset):
@@ -129,17 +179,9 @@ class HistDataset(Dataset):
     """
 
     def __init__(
-        self,
-        *args,
-        caching=True,
-        masking=False,
-        dimensions=1,
-        block=0,
-        multires=0,
-        **kwargs,
+        self, *args, caching=True, dimensions=1, block=0, multires=0, **kwargs
     ):
         self.caching = caching
-        self.masking = masking
         self.dimensions = dimensions
         self.block = block
         self.multires = multires
@@ -148,9 +190,12 @@ class HistDataset(Dataset):
             self.cache = dict()
         super().__init__(*args, **kwargs)
 
-    def calc_hist(self, img):
+    def calc_hist(self, idx):
+        img = super().__getitem__(idx)
+        self.mask = self.get_mask(idx)
+        return self._calc_hist(img, self.mask)
 
-        mask = None if not self.masking else Mask(img).get_mask()
+    def _calc_hist(self, img, mask):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         img = hsv
@@ -187,9 +232,7 @@ class HistDataset(Dataset):
                 for y in range(0, imgheight, M):
                     for x in range(0, imgwidth, N):
                         for i in range(3):
-                            submask = (
-                                mask[y : y + M, x : x + N] if self.masking else None
-                            )
+                            submask = mask[y : y + M, x : x + N] if mask else None
                             hists.append(
                                 cv2.calcHist(
                                     [img[y : y + M, x : x + N]],
@@ -210,9 +253,7 @@ class HistDataset(Dataset):
                 imgwidth = img.shape[1] // res
                 for i in range(3):
                     submask = (
-                        cv2.resize(mask, (imgwidth, imgheight))
-                        if self.masking
-                        else None
+                        cv2.resize(mask, (imgwidth, imgheight)) if self.mask else None
                     )
                     downscale = cv2.resize(img, (imgwidth, imgheight))
                     hists.append(
@@ -235,13 +276,28 @@ class HistDataset(Dataset):
         )
 
     def _calculate(self, idx):
-        self.cache[idx] = self.calc_hist(super().__getitem__(idx))
+        self.cache[idx] = self.normalize(self.calc_hist(idx))
         return self.cache[idx]
+
+    def normalize(self, hist):
+        return normalize_hist(hist)
 
     def __getitem__(self, idx):
         if self.caching:
             return self.cache[idx] if idx in self.cache else self._calculate(idx)
-        return self.calc_hist(super().__getitem__(idx))
+        return self.normalize(self.calc_hist(super().__getitem__(idx)))
+
+
+class MultiHistDataset(HistDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def normalize(self, hists):
+        return [normalize_hist(h) for h in hists]
+
+    def calc_hist(self, idx):
+        img = Dataset.__getitem__(self, idx)
+        return [self._calc_hist(img, mask) for mask in self.get_masks(idx)]
 
 
 class MaskDataset:
