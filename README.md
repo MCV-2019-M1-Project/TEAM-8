@@ -17,7 +17,12 @@
 
 #### Refactor:
 
-  RunConfiguration
-  Automated pikles, txts, GT not only datasets
+  - [ ] RunConfiguration
+  - [ ] Caching
+  - [ ] Automated
+    * txts
+    * GT
+    * Evaluation
+  - [ ] Placeholders for Beto and Marc
   
 
