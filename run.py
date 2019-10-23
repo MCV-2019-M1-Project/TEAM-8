@@ -14,7 +14,13 @@ from utils import get_groundtruth, get_mean_IoU
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset
 import distance as dist
 
-from utils import calc_similarities, get_tops, get_mask_metrics
+from utils import (
+    calc_similarities,
+    get_tops,
+    get_mask_metrics,
+    calc_multi_similarities,
+    get_multi_tops,
+)
 
 
 def find_img_corresp(QS, GT, DB, k):
@@ -25,11 +31,10 @@ def find_img_corresp(QS, GT, DB, k):
 
 
 def find_multi_img_corresp(QS, GT, DB, k):
-    for qs in QS:
-        similarieties = calc_similarities(dist.canberra, DB, qs, True)
-        tops = get_tops(similarieties, k)
-        mapAtK = metrics.mapk(GT, tops, k)
-        print("Map@k is " + str(mapAtK))
+    similarieties = calc_multi_similarities(dist.canberra, DB, QS, True)
+    tops = get_multi_tops(similarieties, k, len(DB))
+    mapAtK = metrics.mapk(GT, tops, k)
+    print("Map@k is " + str(mapAtK))
 
 
 def eval_masks(QS, MS_GT):
@@ -107,15 +112,16 @@ class Solution:
         mean_IoU = get_mean_IoU(gt, boundingxys)
         print(f"Mean IoU: {mean_IoU}")
 
-    def task6(self):
-        QS = [ # noqa
+    def task6(self, k=10):
+        QS = [  # noqa
             hists
             for hists in tqdm(MultiHistDataset(self.QSD2_W2, masking=True, bbox=True))
         ]
-        GT = get_groundtruth("datasets/qsd2_w2/gt_corresps.pkl")
-        print(GT)
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4))) # noqa
-        # find_multi_img_corresp(QS, GT, DB)
+        with open("datasets/qsd2_w2/gt_corresps.pkl", "rb") as f:
+            GT = pickle.load(f)
+
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))  # noqa
+        find_multi_img_corresp(QS, GT, DB, k)
 
     def eval_masks(self):
         QS = Dataset(self.QSD2_W1, masking=True)

@@ -24,6 +24,15 @@ def calc_similarities(measure, db, qs, show_progress=False):
     return np.array([compute_one(hist) for hist in generator])
 
 
+def calc_multi_similarities(measure, db, qs, show_progress=False):
+    def compute_one(hists):
+        result = np.array([measure(hist, db_hist) for hist in hists for db_hist in db])
+        return result
+
+    generator = tqdm(qs) if show_progress else qs
+    return [compute_one(hist) for hist in generator]
+
+
 def normalize_hist(hs):
 
     h_max = max(max(hs[0]), max(hs[1]), max(hs[2]))
@@ -40,6 +49,11 @@ def get_tops(similarities, k):
     """
     tops = similarities.argsort(axis=1)[:, :k]
     return tops
+
+
+def get_multi_tops(similarities, k, dbsize):
+    tops = np.array([np.argsort(sim)[:k] for sim in similarities])
+    return tops % dbsize
 
 
 def get_groundtruth(path):

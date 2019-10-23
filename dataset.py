@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import cv2
 
-from utils import binsearch, normalize_hist, show_img
+from utils import binsearch, normalize_hist
 import text_removal
 
 
@@ -124,10 +124,10 @@ class Splitter:
         if x is None:
             yield self.single_mask
         else:
-            left = np.zeros_like(self.img)
+            left = np.zeros_like(self.img[:, :, 0])
             left[:, :x] += Mask(self.img[:, :x]).get_mask_single()
             yield left
-            right = np.zeros_like(self.img)
+            right = np.zeros_like(self.img[:, :, 0])
             right[:, x:] += Mask(self.img[:, x:]).get_mask_single()
             yield right
 
@@ -136,7 +136,6 @@ class BBox:
     def get_bbox(self, img):
         base_mask = np.ones_like(img[:, :, 0])
         result = text_removal.getpoints2(img)
-        show_img(result.drawing)
         bbox_coords = result.boundingxy
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
         return np.uint8(base_mask) * 255
@@ -165,7 +164,6 @@ class Dataset:
         return None
 
     def get_masks(self, idx):
-        print(idx)
         img = Dataset.__getitem__(self, idx)
         bbox = BBox().get_bbox(img)
         for mask in Splitter(img):
