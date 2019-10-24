@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 
 import text_removal
 from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle
-from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset
+from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset, BBox
 import distance as dist
 
 from utils import (
@@ -37,6 +37,28 @@ def find_multi_img_corresp(QS, GT, DB, k):
     print("Map@k is " + str(mapAtK))
 
 
+def find_multi_img_corresp_keep(QS, DB, k):
+    def calc_multi_similarities_keep(measure, db, qs, show_progress=False):
+        def compute_one(hists):
+            result = [
+                np.array([measure(hist, db_hist) for db_hist in db]) for hist in hists
+            ]
+            return result
+
+        generator = tqdm(qs) if show_progress else qs
+        return [compute_one(hist) for hist in generator]
+
+    def get_multi_tops_keep(sims, k):
+        sims = list(
+            map(lambda sims_pic: [sims.argsort()[:k] for sims in sims_pic], sims)
+        )
+        return sims
+
+    sims = calc_multi_similarities_keep(dist.canberra, DB, QS, True)
+    tops = get_multi_tops_keep(sims, k)
+    return tops
+
+
 def eval_masks(QS, MS_GT):
     if len(QS) != len(MS_GT):
         raise ValueError("Query set size doesn't match ground truth size")
@@ -58,7 +80,7 @@ class Solution:
         QSD1_W1="datasets/qsd1_w1",
         QSD2_W1="datasets/qsd2_w1",
         QSD1_W2="datasets/qsd1_w2",
-        QSD2_W2="datasets/qsd2_w2",
+        QSD2_W2="datasets/qst2_w2",
     ):
         self.QSD1_W1 = QSD1_W1
         self.QSD2_W1 = QSD2_W1
@@ -117,11 +139,20 @@ class Solution:
             hists
             for hists in tqdm(MultiHistDataset(self.QSD2_W2, masking=True, bbox=True))
         ]
-        with open("datasets/qsd2_w2/gt_corresps.pkl", "rb") as f:
-            GT = pickle.load(f)
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))  # noqa
+        tops = find_multi_img_corresp_keep(QS, DB, k)
+        with open("outputs/resutls.pkl", "wb") as f:
+            pickle.dump(tops, f)
+        print(tops)
 
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False)))  # noqa
-        find_multi_img_corresp(QS, GT, DB, k)
+        # Generate pngs
+        QS1 = Dataset(self.QSD2_W2, masking=True, bbox=True)
+        for i in range(len(QS1)):
+            im = QS1.get_mask(i)
+            cv2.imwrite("outputs/" + str(i) + ".png", im)
+        text_boxes = [BBox().get_bbox_cords(QS1[i]) for i in range(len(QS1))]
+        with open("outputs/text_boxes.pkl", "wb") as f:
+            pickle.dump(text_boxes, f)
 
     def eval_masks(self):
         QS = Dataset(self.QSD2_W1, masking=True)
