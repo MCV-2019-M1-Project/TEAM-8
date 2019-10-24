@@ -7,6 +7,94 @@ from utils import binsearch, normalize_hist
 import text_removal
 
 
+class Dataset:
+    """
+    HOWTO:
+        - caching - use ring.lru or methodtools.lru_cache
+
+    TODO:
+        - backup:
+            - load idx - [stage_name, {**new_items}]
+            - update idx
+            - load all
+
+        pyTables - complicated
+        pickle - to many files, or can't load by index
+        numpy.savez - everything has to be an array
+
+        - compute stage by stage
+    """
+
+    pipeline = tuple()
+
+    def __init__(self, path, extension="jpg", backup="", start_from=None):
+        # TODO: allow many extensions
+        self.paths = sorted(glob.glob(f"{path}/*.{extension}"))
+        self.start_from = start_from
+        if backup:
+            self._init_backup(backup)
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        return self._getitem_cached(idx)
+
+    def _init_backup(self, backup_path):
+        # TODO actual backup
+        pass
+
+    # TODO ring.lru() and __ring_key__
+    def _getitem_cached(self, idx):
+        data = self._load(idx)
+        return self._finish_processing(data)
+
+    def _load(self, idx):
+        # TODO try to load from backup
+        data = {"_dataset": self, "idx": idx, "path": self.paths[idx], "_completed": []}
+        return data
+
+    def _finish_processing(self, data, end_when_data_has=None):
+        to_run = self._get_remaining_stages(data["_completed"])
+        for stage_cls in to_run:
+            stage_instance = stage_cls(data)
+            try:
+                new_items = self._apply_stage(stage_instance, data)
+                self._save(data["idx"], new_items, stage_cls.__name__)
+            except Exception:
+                print(f"Failed in {stage_cls.__name__}")
+                raise
+
+    def save(self, idx):
+        # TODO:
+        pass
+
+    def _get_remaining_stages(self, completed):
+        try:
+            first_difference = list(
+                map(lambda c, s: c == s.__name__, zip(completed, self.pipeline))
+            ).index(True)
+        except ValueError:
+            return ()
+        return self.pipeline[first_difference:]
+
+    def _apply_stage(self, stage, data):
+        if getattr(stage, "validate", None) is not None:
+            assert stage.validate(data), "Validation failed"
+        if getattr(stage, "pre_apply", None) is not None:
+            stage.pre_apply(data)
+        new_items = stage.apply(data)
+        if new_items:
+            data.update(new_items)
+        if getattr(stage, "post_apply", None) is not None:
+            stage.post_apply(data)
+
+    def assequence(self, of=None):
+        if of is not None:
+            return ({of: self.__getitem__(idx)[of]} for idx in range(len(self)))
+        return (self.__getitem__(idx) for idx in range(len(self)))
+
+
 class Mask:
     """
     Helper class to make a mask out of image
@@ -146,18 +234,7 @@ class BBox:
         return bbox_coords
 
 
-class Dataset:
-    def __init__(self, path, masking=False, bbox=False):
-        self.paths = sorted(glob.glob(f"{path}/*.jpg"))
-        self.masking = masking
-        self.bbox = bbox
-
-    def __getitem__(self, idx):
-        return cv2.imread(self.paths[idx])
-
-    def __len__(self):
-        return len(self.paths)
-
+class Whatever:
     def get_mask(self, idx):
         if self.masking or self.bbox:
             img = Dataset.__getitem__(self, idx)
