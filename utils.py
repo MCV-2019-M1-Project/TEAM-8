@@ -132,3 +132,14 @@ def show_img(img, title=""):
     cv2.imshow(title, img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+def get_pickle(path):
+    with open(path, "rb") as f:
+        data = pickle.load(f)
+    return data
+
+
+def dump_pickle(path, data):
+    with open(path, "wb") as f:
+        pickle.dump(data, f)

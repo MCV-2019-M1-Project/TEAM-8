@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 
 import text_removal
-from utils import get_groundtruth, get_mean_IoU
+from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset
 import distance as dist
 
@@ -120,7 +120,7 @@ class Solution:
         with open("datasets/qsd2_w2/gt_corresps.pkl", "rb") as f:
             GT = pickle.load(f)
 
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))  # noqa
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False)))  # noqa
         find_multi_img_corresp(QS, GT, DB, k)
 
     def eval_masks(self):
