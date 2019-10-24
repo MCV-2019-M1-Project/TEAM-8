@@ -91,8 +91,44 @@ class Dataset:
 
     def assequence(self, of=None):
         if of is not None:
-            return ({of: self.__getitem__(idx)[of]} for idx in range(len(self)))
+            if isinstance(of, str):
+                return ({of: self.__getitem__(idx)[of]} for idx in range(len(self)))
+            of = set(of)
+            return (
+                {
+                    (key, value)
+                    for key, value in self.__getitem__(idx).items()
+                    if key in of
+                }
+                for idx in range(len(self))
+            )
         return (self.__getitem__(idx) for idx in range(len(self)))
+
+
+class BaseTransformMixin:
+    def validate(self, data):
+        return all(
+            keyword in data for keyword in getattr(self, "required_keywords", [])
+        )
+
+
+class LoadImg(BaseTransformMixin):
+    required_keywords = ("path",)
+
+    def apply(self, data):
+        img = cv2.imread(data["path"])
+        return {"img": img}
+
+
+class BBox(BaseTransformMixin):
+    required_keywords = ("img",)
+
+    def apply(self, img):
+        result = text_removal.getpoints2(img)
+        bbox_coords = result.boundingxy
+        base_mask = np.ones_like(img[:, :, 0])
+        base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
+        return {"bbox_mask": np.uint8(base_mask) * 255, "bbox_coords": bbox_coords}
 
 
 class Mask:
@@ -218,20 +254,6 @@ class Splitter:
             right = np.zeros_like(self.img[:, :, 0])
             right[:, x:] += Mask(self.img[:, x:]).get_mask_single()
             yield right
-
-
-class BBox:
-    def get_bbox(self, img):
-        base_mask = np.ones_like(img[:, :, 0])
-        result = text_removal.getpoints2(img)
-        bbox_coords = result.boundingxy
-        base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
-        return np.uint8(base_mask) * 255
-
-    def get_bbox_cords(self, img):
-        result = text_removal.getpoints2(img)
-        bbox_coords = result.boundingxy
-        return bbox_coords
 
 
 class Whatever:
