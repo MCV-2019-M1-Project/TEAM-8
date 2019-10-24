@@ -240,7 +240,7 @@ class HistDataset(Dataset):
                 for y in range(0, imgheight, M):
                     for x in range(0, imgwidth, N):
                         for i in range(3):
-                            submask = mask[y : y + M, x : x + N] if mask else None
+                            submask = mask[y : y + M, x : x + N] if self.masking else None
                             hists.append(
                                 cv2.calcHist(
                                     [img[y : y + M, x : x + N]],
@@ -261,7 +261,7 @@ class HistDataset(Dataset):
                 imgwidth = img.shape[1] // res
                 for i in range(3):
                     submask = (
-                        cv2.resize(mask, (imgwidth, imgheight)) if self.mask else None
+                        cv2.resize(mask, (imgwidth, imgheight)) if self.masking else None
                     )
                     downscale = cv2.resize(img, (imgwidth, imgheight))
                     hists.append(

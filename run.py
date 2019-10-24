@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 
 import text_removal
-from utils import get_groundtruth, get_mean_IoU
+from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset, BBox
 import distance as dist
 
