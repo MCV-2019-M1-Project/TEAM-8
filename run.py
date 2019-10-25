@@ -76,16 +76,20 @@ def eval_masks(QS, MS_GT):
 class Solution:
     def __init__(
         self,
-        DDBB="datasets/DDBB",
+        DDBB="datasets/bbdd_text",
         QSD1_W1="datasets/qsd1_w1",
         QSD2_W1="datasets/qsd2_w1",
         QSD1_W2="datasets/qsd1_w2",
         QSD2_W2="datasets/qst2_w2",
+        QSD1_W3="datasets/qsd1_w3",
+        QSD2_W3="datasets/qsd2_w3",
     ):
         self.QSD1_W1 = QSD1_W1
         self.QSD2_W1 = QSD2_W1
         self.QSD1_W2 = QSD1_W2
         self.QSD2_W2 = QSD2_W2
+        self.QSD1_W3 = QSD1_W3
+        self.QSD2_W3 = QSD2_W3
         self.DDBB = DDBB
 
     def task2(self, k=10):
@@ -95,6 +99,23 @@ class Solution:
         DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))
         print("Analyzing QS2")
         find_img_corresp(QS2, GT, DB, k)
+
+    def task_w2(self):
+        print("Computing bounding boxes")
+        QS1 = [
+            text_removal.getpoints2(im)
+            for im in tqdm(text_removal.text_remover(self.QSD1_W3))
+        ]
+        boundingxys = [element.boundingxy for element in QS1]
+        drawings = [element.drawing for element in QS1]
+
+        gt = np.asarray(get_groundtruth(f"{self.QSD1_W3}/text_boxes.pkl")).squeeze()
+        mean_IoU = get_mean_IoU(gt, boundingxys)
+
+        print("Mean Intersection over Union: ", mean_IoU)
+
+        for im in range(len(drawings)):
+            cv2.imwrite("outputs/" + str(im) + ".png", drawings[im])
 
     def task4(self):
         print("Computing bounding boxes")
