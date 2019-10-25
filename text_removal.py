@@ -35,39 +35,37 @@ def getpoints(im):
 
 def getpoints2(im):
 
-    blur = cv2.GaussianBlur(im, (15,15), 0)
+    # ___GET Y INSIDE TEXT___
 
-    sobely64f = cv2.Sobel(blur, cv2.CV_64F, 0, 1, ksize=5)
-    sobely64f = np.abs(sobely64f)
-    sobely64f = sobely64f / np.amax(sobely64f)
+    grad_neighb_divider = 1000
+    sobel_x_thresh = 25
 
-    sobelx64f = cv2.Sobel(blur, cv2.CV_64F, 1, 0, ksize=5)
-    sobelx64f = np.abs(sobelx64f)
-    sobelx64f = (sobelx64f / np.amax(sobelx64f) * 255).astype("uint8")
-    print(sobelx64f.shape)
+    blur = cv2.GaussianBlur(im, (15, 15), 0)
 
-    h, l, s = cv2.split(cv2.cvtColor(sobelx64f, cv2.COLOR_BGR2HLS))
+    sobel_x = cv2.Sobel(blur, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x = np.abs(sobel_x)
+    sobel_x = (sobel_x / np.amax(sobel_x) * 255).astype("uint8")
 
-    grays = cv2.cvtColor(sobelx64f, cv2.COLOR_BGR2GRAY)
-    grays_i = grays.astype("float16")
-    s_i = s.astype("float16")
+    h, l, s = cv2.split(cv2.cvtColor(sobel_x, cv2.COLOR_BGR2HLS))
+    s_f = s.astype("float16")
 
-    grays_i -= s_i
-    grays_i[grays_i < 0] = 0
+    sobel_x_mod = cv2.cvtColor(sobel_x, cv2.COLOR_BGR2GRAY).astype("float16")
 
-    grays_i = grays_i / np.amax(grays) * 255
-    grays_i = grays_i.astype("uint8")
-    grays_i[grays_i < 100] = 0
+    sobel_x_mod -= s_f
+    sobel_x_mod[sobel_x_mod < 0] = 0
 
-    kernel = np.ones((15, 15), np.uint8)
+    sobel_x_mod = sobel_x_mod / np.amax(sobel_x_mod) * 255
+    sobel_x_mod = sobel_x_mod.astype("uint8")
+    sobel_x_mod[sobel_x_mod < sobel_x_thresh] = 0
+
     start_x = round(im.shape[1] / 3)
     end_x = round(2 * im.shape[1] / 3)
 
-    min = 0
+    min_y = 0
     min_value = 99999999999999
 
     im_m = np.copy(im)
-    grad_x_neighb = 0
+
     for y in range(round(im.shape[0] / 4 - 4)):
         j_p = round(3 * im.shape[0] / 4) + y
         grad_devia = 0
@@ -79,17 +77,17 @@ def getpoints2(im):
             #im_m[j_p,x] = [255, 0, 0]
 
         for x in range(start_x, end_x):
-            grad_x_neighb += grays_i[j_p + 1, x]
-            grad_x_neighb += grays_i[j_p + 2, x]
-            grad_x_neighb += grays_i[j_p + 3, x]
+            grad_x_neighb += sobel_x_mod[j_p + 1, x]
+            grad_x_neighb += sobel_x_mod[j_p + 2, x]
+            grad_x_neighb += sobel_x_mod[j_p + 3, x]
 
-        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb
+        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb / grad_neighb_divider
         new_value = sum(grad_devia) / grad_x_neighb
 
         if new_value < min_value:
-            print(new_value, " ", grad_x_neighb)
+            #print("NV: ", new_value, " Mean", sum(grad_devia), " X_Neighb", grad_x_neighb)
             min_value = new_value
-            min = j_p
+            min_y = j_p
 
         ##########
 
@@ -100,198 +98,35 @@ def getpoints2(im):
         mean_b = np.mean(blur[j_m][start_x:end_x])
         for x in range(start_x, end_x):
             grad_devia += abs(mean_b - blur[j_m, x])
-            #im_m[j_m, x] = [0, 255, 00]
 
         for x in range(start_x, end_x):
-            grad_x_neighb += grays_i[j_m - 1, x]
-            grad_x_neighb += grays_i[j_m - 2, x]
-            grad_x_neighb += grays_i[j_m - 3, x]
+            grad_x_neighb += sobel_x_mod[j_m - 1, x]
+            grad_x_neighb += sobel_x_mod[j_m - 2, x]
+            grad_x_neighb += sobel_x_mod[j_m - 3, x]
 
-        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb
+        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb / grad_neighb_divider
         new_value = sum(grad_devia) / grad_x_neighb
 
         if new_value < min_value:
-            print(new_value, " ", grad_x_neighb)
             min_value = new_value
-            min = j_m
-
-    print("min at ", min_value)
+            min_y = j_m
 
     pad = 3
-    im_m[min - pad:min + pad, start_x:end_x] = [0, 0, 255]
-    im_m[min, start_x:end_x] = [255, 0, 0]
+    im_m[min_y - pad:min_y + pad, start_x:end_x] = [0, 0, 255]
+    im_m[min_y, start_x:end_x] = [255, 0, 0]
 
-    cv2.imshow("image", utils.resize(im_m, 25))
-    cv2.imshow("sobel", utils.resize(sobelx64f, 25))
-    cv2.imshow("saturation", utils.resize(s, 25))
-    cv2.imshow("joined", utils.resize(grays_i, 25))
+    # ___GET BOUNDARIES___
+
+
+    res = 50
+    cv2.imshow("image", utils.resize(im_m, res))
+    cv2.imshow("sobel", utils.resize(sobel_x, res))
+    cv2.imshow("saturation", utils.resize(s, res))
+    cv2.imshow("joined", utils.resize(sobel_x_mod, res))
 
     cv2.waitKey()
 
-    return
-
-    def get_y():
-        min = 0
-        min_value = 99999999999999
-
-        for y in range(im.shape[0]):
-            current_value = 0
-            for x in range(start_x, end_x):
-                current_value += opening[y, x]
-
-            current_value = sum(current_value) / im.shape[1]
-            if current_value < min_value:
-                min_value = current_value
-                min = y
-
-        return min
-
-    opening = cv2.morphologyEx(blur, cv2.MORPH_OPEN, kernel)
-    opening = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-
-    min = get_y()
-    pad = 3
-
-    lap = np.array((
-        [0, -1, 0],
-        [-1, 4, -1],
-        [0, -1, 0]), dtype="uint8")
-
-    lapa = sci.convolve2d(utils.resize(gray, 25), lap)
-    max = np.amax(lapa)
-    lap = (lap / max) * 255
-
-    print(np.amax(lap))
-    print(np.amin(lap))
-
-    print(abs_sobely64f.shape)
-
-    im[min - pad:min + pad, start_x:end_x] = [0, 0, 255]
-    im[min, start_x:end_x] = [255, 0, 0]
-
-    print(min)
-
-    cv2.imshow("b", blur)
-
-    cv2.waitKey()
-
-
-    # print(im.shape[0])
-    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    kernel = np.ones((22, 22), np.uint8)
-
-    # construct the Sobel x-axis kernel
-    sobelX = np.array((
-        [0, 0, 0],
-        [-1, 0, 1],
-        [0, 0, 0]), dtype="int")
-
-    corner = np.array((
-        [-1, -0.75, -0.75],
-        [-0.75, 1, 1],
-        [-0.75, 1, 1]), dtype="uint8")
-
-    opening = cv2.morphologyEx(im, cv2.MORPH_OPEN, kernel)
-    opening = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-
-    tophat = cv2.morphologyEx(im, cv2.MORPH_TOPHAT, kernel)
-    blackhat = cv2.morphologyEx(im, cv2.MORPH_BLACKHAT, kernel)
-
-    h, l, s = cv2.split(cv2.cvtColor(opening, cv2.COLOR_BGR2HLS))
-    h2, l2, s2 = cv2.split(cv2.cvtColor(opening, cv2.COLOR_BGR2HLS))
-
-    cornered = sci.convolve2d(utils.resize(gray, 25), corner)
-    maxValue = np.amax(cornered)
-    cornered[cornered < maxValue] = 0
-    print(maxValue)
-
-    opening = cv2.morphologyEx(s2, cv2.MORPH_OPEN, kernel)
-    #opening = cv2.morphologyEx(s2, cv2.MORPH_CLOSE, kernel)
-
-    blur = cv2.GaussianBlur(opening, (19, 19), 0)
-    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-
-    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-    sobely = cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=3)
-
-
-    return
-
-    boundingxy = [
-        boundRect[-1][0] + 5,
-        boundRect[-1][1] + 5,
-        boundRect[-1][0] + boundRect[-1][2] - 5,
-        boundRect[-1][1] + boundRect[-1][3] - 5,
-    ]
-
-    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-
-
-    imager = im[:, :, 0]
-    imageg = im[:, :, 1]
-    imageb = im[:, :, 2]
-    output = np.equal(imager, imageg, dtype=int)
-    output2 = np.equal(imager, imageb, dtype=int)
-    output1 = np.equal(imageb, imageg, dtype=int)
-    output3 = output & output2
-    output4 = output3 & output1
-    mask = 255 * output4
-    mask1 = mask.astype(np.uint8)
-    # gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    # ret, thresh = cv2.threshold(
-    # gray, 200, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((int((im.shape[0]) / 350), int((im.shape[1]) / 35)), np.uint8)
-
-    denoised = cv2.erode(mask1, kernel, iterations=5)
-    # denoised = cv2.erode(denoised, kernel, iterations=1)
-    denoised = cv2.dilate(denoised, kernel, iterations=3)
-    denoised = cv2.dilate(denoised, kernel, iterations=2)
-
-    canny_output = cv2.Canny(denoised, 200, 255)
-    contours, hierarchy = cv2.findContours(
-        canny_output, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    contours_poly = [None] * len(contours)
-    boundRect = [None] * len(contours)
-    drawing = np.zeros(
-        (canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8
-    )
-    drawing[:, :, 0] = gray
-    drawing[:, :, 1] = gray
-    drawing[:, :, 2] = gray
-    max_area = 0
-    max = 0
-    for i, c in enumerate(contours):
-        contours_poly[i] = cv2.approxPolyDP(c, 3, True)
-        boundRect[i] = cv2.boundingRect(contours_poly[i])
-        area = boundRect[i][2] * boundRect[i][3]
-        if (area > max_area) & (boundRect[i][3] < boundRect[i][2]):
-            max = boundRect[i]
-            max_area = area
-        # FIXME(Beto): If there're two areas of the same size Eddie says it's not worki
-        if area == max_area:
-            max = boundRect[i]
-        boundRect[i] = max
-
-    for i in range(len(contours)):
-        # cv2.drawContours(drawing, contours_poly, i, (0, 255, 0))
-        cv2.rectangle(
-            drawing,
-            (int(boundRect[-1][0]), int(boundRect[-1][1])),
-            (
-                int(boundRect[-1][0] + boundRect[-1][2]),
-                int(boundRect[-1][1] + boundRect[-1][3]),
-            ),
-            (0, 255, 0),
-            2,
-        )
-
-    boundingxy = [
-        boundRect[-1][0] + 5,
-        boundRect[-1][1] + 5,
-        boundRect[-1][0] + boundRect[-1][2] - 5,
-        boundRect[-1][1] + boundRect[-1][3] - 5,
-    ]
+    boundingxy = [ min_y, round(im.shape[1] / 2), min_y, round(im.shape[1] / 2) ]
 
     # Betos Post-Processing from here on
 
