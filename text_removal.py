@@ -63,6 +63,10 @@ def getpoints2(im):
 
     min_y = 0
     min_value = 99999999999999
+    min_y2 = 0
+    min_value2 = 99999999999999
+    min_y3 = 0
+    min_value3 = 99999999999999
 
     im_m = np.copy(im)
 
@@ -115,25 +119,39 @@ def getpoints2(im):
     im_m[min_y - pad:min_y + pad, start_x:end_x] = [0, 0, 255]
     im_m[min_y, start_x:end_x] = [255, 0, 0]
 
-    # ___GET BOUNDARIES___
+    im_m[min_y - 20 - pad:min_y - 20 + pad, start_x:end_x] = [0, 255, 0]
 
+    boundingxy = [start_x, min_y - 20, end_x, min_y]
+    print(boundingxy)
+
+    im_m = cv2.rectangle(
+        im_m,
+        (boundingxy[0], boundingxy[1]),
+        (boundingxy[2], boundingxy[3]),
+        (0, 0, 255),
+        2,
+    )
 
     res = 50
     cv2.imshow("image", utils.resize(im_m, res))
-    cv2.imshow("sobel", utils.resize(sobel_x, res))
-    cv2.imshow("saturation", utils.resize(s, res))
-    cv2.imshow("joined", utils.resize(sobel_x_mod, res))
+    #cv2.imshow("sobel", utils.resize(sobel_x, res))
+    #cv2.imshow("saturation", utils.resize(s, res))
+    #cv2.imshow("joined", utils.resize(sobel_x_mod, res))
 
-    cv2.waitKey()
-
-    boundingxy = [ min_y, round(im.shape[1] / 2), min_y, round(im.shape[1] / 2) ]
+    # ___GET BOUNDARIES___
 
     # Betos Post-Processing from here on
 
     # Otsu's thresholding
-    imx = np.copy(gray[boundingxy[1] : boundingxy[3], boundingxy[0] : boundingxy[2]])
+    blur = cv2.GaussianBlur(im, (5, 5), 0)
+    gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+    imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
+
+    cv2.imshow("a", imx)
+
     ima, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
+    print(th2)
     minv = np.min(th2)
     maxv = np.max(th2)
     meanv = np.mean(th2)
@@ -162,54 +180,43 @@ def getpoints2(im):
                             if v > maxkernel:
                                 maxkernel = v
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (maxkernel + 6, maxkernel + 6))
+    ksize = round(3 * maxkernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
 
     if diffmin < diffmax:
+        print("Background black")
         gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
     else:
+        print("Background white")
         gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
 
     scale = 1
     delta = 0
     ddepth = cv2.CV_16S
 
-    grad_x = cv2.Sobel(
-        gray,
-        ddepth,
-        1,
-        0,
-        ksize=3,
-        scale=scale,
-        delta=delta,
-        borderType=cv2.BORDER_DEFAULT,
-    )
-    grad_y = cv2.Sobel(
-        gray,
-        ddepth,
-        0,
-        1,
-        ksize=3,
-        scale=scale,
-        delta=delta,
-        borderType=cv2.BORDER_DEFAULT,
-    )
+    pad = 5000
 
-    abs_grad_x = cv2.convertScaleAbs(grad_x)
-    abs_grad_y = cv2.convertScaleAbs(grad_y)
+    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x = np.abs(sobel_x)
+    sobel_x = (sobel_x / np.amax(sobel_x) * 255).astype("uint8")
 
-    grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
-    thresh = 15
+    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
+    sobel_y = np.abs(sobel_y)
+    sobel_y = (sobel_y / np.amax(sobel_y) * 255).astype("uint8")
 
-    grad[boundingxy[1] : boundingxy[3], boundingxy[0] : boundingxy[2]] = 0
+    sobel_y[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+    sobel_x[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+
+    thresh = 20
 
     def moveboundy(maxsize, b1, b2, b3, pad, action, diff=-1):
         for i in range(b1, min(b1 + pad, maxsize), action):
             broken = False
             for j in range(b2, b3):
-                if grad[i, j] > thresh:
+                if sobel_y[i, j] > thresh:
                     broken = True
                     if diff == 1:
-                        b1 -= 2 * action
+                        b1 -= 5 * action
                     break
             if broken:
                 break
@@ -222,7 +229,7 @@ def getpoints2(im):
         for j in range(b1, min(b1 + pad, im.shape[1]), action):
             broken = False
             for i in range(b2, b3):
-                if grad[i, j] > thresh:
+                if sobel_x[i, j] > thresh:
                     broken = True
                     break
             if broken:
@@ -233,32 +240,34 @@ def getpoints2(im):
 
     diff1 = 0
     boundingxy[1], diff1 = moveboundy(
-        999999999, boundingxy[1], boundingxy[0], boundingxy[2], -50, -1, diff1
+        999999999, boundingxy[1], boundingxy[0], boundingxy[2], -pad, -1, diff1
     )
     diff2 = 0
     boundingxy[3], diff2 = moveboundy(
-        grad.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 50, 1, diff2
+        gray.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], pad, 1, diff2
     )
-    boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], -50, -1)
-    boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], 50, 1)
+    boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], -pad, -1)
+    boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], pad, 1)
+
+    if diff1 == 1:
+        boundingxy[1] -= 5
+
+    if diff2 == 1:
+        boundingxy[3] += 5
 
     drawing = cv2.rectangle(
-        drawing,
+        im,
         (boundingxy[0], boundingxy[1]),
         (boundingxy[2], boundingxy[3]),
-        (0, 255, 255),
+        (255, 0, 0),
         2,
     )
 
-    if diff1 == 1:
-        boundingxy[1] -= 2
-
-    if diff2 == 1:
-        boundingxy[3] += 2
+    res = 50
+    cv2.imshow("gray", utils.resize(gray, res))
 
     if True:
         cv2.imshow("b", utils.resize(im, 50))
-        cv2.imshow("c", utils.resize(drawing, 50))
         cv2.waitKey(0)
 
     class Result:
