@@ -44,7 +44,7 @@ def getpoints2(im, mask):
 
 
 def getpoints2(im):
-    # ___GET Y INSIDE TEXT___
+    # ___GET SMALL BOUNDING BOX WITH NO FALSE POSITIVES___
 
     grad_neighb_divider = 1000
     sobel_x_thresh = 25
@@ -72,8 +72,6 @@ def getpoints2(im):
 
     min_y = 0
     min_value = 99999999999999
-
-    im_m = np.copy(im)
 
     for y in range(round(im.shape[0] / 4 - 4)):
         j_p = round(3 * im.shape[0] / 4) + y
@@ -118,26 +116,12 @@ def getpoints2(im):
             min_value = new_value
             min_y = j_m
 
-    pad = 3
-    im_m[min_y - pad:min_y + pad, start_x:end_x] = [0, 0, 255]
-    im_m[min_y, start_x:end_x] = [255, 0, 0]
+    boundingxy_initial = [start_x, min_y - 10, end_x, min_y]
+    boundingxy = np.copy(boundingxy_initial)
 
-    im_m[min_y - 10 - pad:min_y - 10 + pad, start_x:end_x] = [0, 255, 0]
+    # ___EXPAND BOUNDING BOX TO GET LESS FALSE NEGATIVES___
 
-    boundingxy = [start_x, min_y - 10, end_x, min_y]
-    boundingxy2 = [start_x, min_y - 10, end_x, min_y]
-
-    im_m = cv2.rectangle(
-        im_m,
-        (boundingxy[0], boundingxy[1]),
-        (boundingxy[2], boundingxy[3]),
-        (0, 0, 255),
-        2,
-    )
-
-    # ___GET BOUNDARIES___
-
-    # Otsu's thresholding
+    # Otsu's thresholding.
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(im, (5, 5), 0)
     gray_b = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
@@ -145,7 +129,7 @@ def getpoints2(im):
 
     ima, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # Getting info about if the image needs to be opened / closed to remove text from textbox
+    # Getting info about if the image needs to be opened / closed to remove text from textbox.
     minv = np.min(th2)
     maxv = np.max(th2)
     meanv = np.mean(th2)
@@ -156,7 +140,7 @@ def getpoints2(im):
     if diffmin < diffmax:
         imb, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    # Getting good kernel size for opening / closing to remove text from textbox
+    # Getting good kernel size for opening / closing to remove text from textbox.
     maxkernel = 3
 
     for i in range(0, imx.shape[0]):
@@ -181,7 +165,7 @@ def getpoints2(im):
     else:
         gray_b = cv2.morphologyEx(gray_b, cv2.MORPH_CLOSE, kernel)
 
-    # Getting gradients from opening / closing
+    # Getting gradients from opening / closing.
     sobel_x_op = cv2.Sobel(gray_b, cv2.CV_64F, 1, 0, ksize=5)
     sobel_x_op = np.abs(sobel_x_op)
     sobel_x_op = (sobel_x_op / np.amax(sobel_x_op) * 255).astype("uint8")
@@ -193,7 +177,7 @@ def getpoints2(im):
     sobel_y_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
     sobel_x_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
 
-    # Expanding bbox until high gradients are found (border of text box)
+    # Expanding bbox until high gradients are found (border of text box).
     thresh = 20
 
     def moveboundy(range_m, b1, b2, b3, action, diff=-1):
@@ -209,7 +193,7 @@ def getpoints2(im):
                 b1 += action
                 diff = 1
         if diff == 1:
-            # reduce temporaly bounding box in y direction to allow growth in x direction
+            # Reduce temporaly bounding box in y direction to allow growth in x direction.
             b1 -= 5 * action
         return b1, diff
 
@@ -237,6 +221,8 @@ def getpoints2(im):
     if diff2 == 1:
         boundingxy[3] += 5
 
+    # Drawing initial and expanded bbox.
+
     drawing = np.copy(im)
     cv2.rectangle(
         drawing,
@@ -248,8 +234,8 @@ def getpoints2(im):
 
     cv2.rectangle(
         drawing,
-        (boundingxy2[0], boundingxy2[1]),
-        (boundingxy2[2], boundingxy2[3]),
+        (boundingxy_initial[0], boundingxy_initial[1]),
+        (boundingxy_initial[2], boundingxy_initial[3]),
         (0, 255, 0),
         2,
     )
@@ -258,19 +244,24 @@ def getpoints2(im):
     pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
     text = pytesseract.image_to_string(imx)
 
+    mask = np.ones((im.shape[0], im.shape[1]))
+    cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
+
     if False:
         cv2.imshow("Drawing", utils.resize(drawing, 50))
+        cv2.imshow("Mask", utils.resize(mask, 50))
         #cv2.imshow("Sobel x", utils.resize(sobel_x_op, 50))
         #cv2.imshow("Sobel y", utils.resize(sobel_y_op, 50))
         cv2.waitKey(0)
 
     class Result:
-        def __init__(self, boundingxy, drawing, text):
+        def __init__(self, boundingxy, drawing, text, mask):
             self.boundingxy = boundingxy
             self.drawing = drawing
             self.text = text
+            self.mask = mask
 
-    return Result(boundingxy, drawing, text)
+    return Result(boundingxy, drawing, text, mask)
 
 
 def getpoints3(im):
