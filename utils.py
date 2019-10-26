@@ -6,6 +6,8 @@ from tqdm.auto import tqdm
 
 from mask_metrics import MaskMetrics
 import distance as dist
+import Levenshtein as lev
+import glob
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -88,8 +90,10 @@ def get_mask_metrics(pred, gt, show_progress):
 def get_mean_IoU(gts, preds):
     result = 0
     for x in range(len(gts)):
-        result += dist.intersection_over_union(gts[x], preds[x])
-        print("mean IoU: ", dist.intersection_over_union(gts[x], preds[x]))
+        res = dist.intersection_over_union(gts[x], preds[x])
+        if res < 0.8:
+            print("  Mean IoU at:", x, ":", dist.intersection_over_union(gts[x], preds[x]))
+        result += res
     return result / len(preds)
 
 
@@ -144,3 +148,22 @@ def get_pickle(path):
 def dump_pickle(path, data):
     with open(path, "wb") as f:
         pickle.dump(data, f)
+
+
+def compute_lev(gts, preds):
+    result = 0
+    for x in range(len(preds)):
+        res = lev.distance(gts[x], preds[x])
+        if res != 0:
+            print("  Lev distance at", x, ":", res)
+        result += res
+    return result / len(preds)
+
+
+def get_gt_text(path):
+    paths = sorted(glob.glob(f"{path}/*.txt"))
+    result = []
+    for path in paths:
+        result.append(open(path, "r").read().split("'")[1])
+    return result
+
