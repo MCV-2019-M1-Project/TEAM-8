@@ -1,7 +1,8 @@
-import glob
+from os.path import Path
 
 import numpy as np
 import cv2
+from methodtools import lru_cache
 
 from utils import binsearch, normalize_hist
 import text_removal
@@ -9,9 +10,6 @@ import text_removal
 
 class Dataset:
     """
-    HOWTO:
-        - caching - use ring.lru or methodtools.lru_cache
-
     TODO:
         - backup:
             - load idx - [stage_name, {**new_items}]
@@ -29,7 +27,7 @@ class Dataset:
 
     def __init__(self, path, extension="jpg", backup="", start_from=None):
         # TODO: allow many extensions
-        self.paths = sorted(glob.glob(f"{path}/*.{extension}"))
+        self.paths = sorted(Path(path).glob("*.{extension}"))
         self.start_from = start_from
         if backup:
             self._init_backup(backup)
@@ -44,7 +42,7 @@ class Dataset:
         # TODO actual backup
         pass
 
-    # TODO ring.lru() and __ring_key__
+    @lru_cache()
     def _getitem_cached(self, idx):
         data = self._load(idx)
         return self._finish_processing(data)
@@ -116,19 +114,113 @@ class LoadImg(BaseTransformMixin):
     required_keywords = ("path",)
 
     def apply(self, data):
-        img = cv2.imread(data["path"])
+        img = cv2.imread(str(data["path"]))
         return {"img": img}
 
 
-class BBox(BaseTransformMixin):
+class LoadMask(BaseTransformMixin):
+    required_keywords = ("path",)
+
+    @classmethod
+    def with_mask_ext(cls, ext):
+        cls.ext = ext
+
+    def apply(self, data):
+        mask_path = data["path"].with_suffix(".png")
+        mask = cv2.imread(str(mask_path))
+        return {"mask": mask}
+
+
+class MakeBBox(BaseTransformMixin):
     required_keywords = ("img",)
 
-    def apply(self, img):
+    def apply(self, data):
+        img = data["img"]
         result = text_removal.getpoints2(img)
         bbox_coords = result.boundingxy
         base_mask = np.ones_like(img[:, :, 0])
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
         return {"bbox_mask": np.uint8(base_mask) * 255, "bbox_coords": bbox_coords}
+
+
+class MakeHist(BaseTransformMixin):
+    required_keywords = ("img", "mask")
+
+    def apply(self, data):
+        img, mask = data["img"], data["mask"]
+        return normalize_hist(self.calculate_hist(img, mask))
+
+    def caluculate_hist(self, img, mask):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        return np.array(
+            [
+                cv2.calcHist([img], [ch], mask, [256], [0, 256])
+                for img in (hsv, lab)
+                for ch in range(3)
+            ]
+        )
+
+
+class MakeDimensionalHist(MakeHist):
+    def calculate_hist(self, img, mask):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        _2dparams = ([img], [0, 1], mask, [180 / 8, 256 / 8], [0, 180, 0, 256])
+        _3dparams = ([img], [0, 1, 2], mask, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+        hist = (
+            cv2.calcHist(*_2dparams)
+            if self.dimension == 2
+            else cv2.calcHist(*_3dparams)
+        )
+        hist = hist / hist.sum(axis=-1, keepdims=True)
+        hist[np.isnan(hist)] = 0
+        onedhist = np.reshape(hist, [-1])
+        return onedhist
+
+
+class MakeBlockHist(MakeHist):
+    def calculate_hist(self, img, mask):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        hists = []
+        for i in range(3):
+            hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
+        for divisions in range(1, self.block + 1):
+            imgheight = img.shape[0]
+            imgwidth = img.shape[1]
+
+            M = imgheight // 2 ** divisions
+            N = imgwidth // 2 ** divisions
+
+            for y in range(0, imgheight, M):
+                for x in range(0, imgwidth, N):
+                    for i in range(3):
+                        submask = mask[y : y + M, x : x + N] if mask else None
+                        hists.append(
+                            cv2.calcHist(
+                                [img[y : y + M, x : x + N]],
+                                [i],
+                                submask,
+                                [256],
+                                [0, 256],
+                            )
+                        )
+        return hists
+
+
+class MakeMultiResHist(MakeHist):
+    def calculate_hist(self, img, mask):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        hists = []
+        for i in range(3):
+            hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
+        for res in range(2, self.multires + 1):
+            imgheight = img.shape[0] // res
+            imgwidth = img.shape[1] // res
+            for i in range(3):
+                submask = cv2.resize(mask, (imgwidth, imgheight)) if self.mask else None
+                downscale = cv2.resize(img, (imgwidth, imgheight))
+                hists.append(cv2.calcHist([downscale], [i], submask, [256], [0, 256]))
+        return hists
 
 
 class Mask:
@@ -256,164 +348,48 @@ class Splitter:
             yield right
 
 
-class Whatever:
-    def get_mask(self, idx):
-        if self.masking or self.bbox:
-            img = Dataset.__getitem__(self, idx)
-            mask = np.ones_like(img[:, :, 0]).astype(bool)
-            if self.masking:
-                mask = mask & Mask(img).get_mask().astype(bool)
-            if self.bbox:
-                mask = mask & BBox().get_bbox(img).astype(bool)
-            mask = mask.astype(int)
-            mask[mask != 0] = 255
-            return mask
-        return None
+# class Whatever:
+#     def get_mask(self, idx):
+#         if self.masking or self.bbox:
+#             img = Dataset.__getitem__(self, idx)
+#             mask = np.ones_like(img[:, :, 0]).astype(bool)
+#             if self.masking:
+#                 mask = mask & Mask(img).get_mask().astype(bool)
+#             if self.bbox:
+#                 mask = mask & BBox().get_bbox(img).astype(bool)
+#             mask = mask.astype(int)
+#             mask[mask != 0] = 255
+#             return mask
+#         return None
 
-    def get_masks(self, idx):
-        img = Dataset.__getitem__(self, idx)
-        bbox = BBox().get_bbox(img)
-        for mask in Splitter(img):
-            res = mask + bbox
-            res[res != 0] = 255
-            yield res
-
-
-class HistDataset(Dataset):
-    """
-        Calculates the histogram of the images
-        and applies a mask on from RGB to HLS on the Histogram calculation
-    """
-
-    def __init__(
-        self, *args, caching=True, dimensions=1, block=0, multires=0, **kwargs
-    ):
-        self.caching = caching
-        self.dimensions = dimensions
-        self.block = block
-        self.multires = multires
-
-        if caching:
-            self.cache = dict()
-        super().__init__(*args, **kwargs)
-
-    def calc_hist(self, idx):
-        img = super().__getitem__(idx)
-        self.mask = self.get_mask(idx)
-        return self._calc_hist(img, self.mask)
-
-    def _calc_hist(self, img, mask):
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        img = hsv
-
-        if self.dimensions == 2:
-            hist = cv2.calcHist(
-                [hsv], [0, 1], mask, [180 / 8, 256 / 8], [0, 180, 0, 256]
-            )
-            hist = hist / hist.sum(axis=-1, keepdims=True)
-            hist[np.isnan(hist)] = 0
-            onedhist = np.reshape(hist, [-1])
-            return onedhist
-
-        if self.dimensions == 3:
-            hist = cv2.calcHist(
-                [img], [0, 1, 2], mask, [8, 8, 8], [0, 256, 0, 256, 0, 256]
-            )
-            hist = hist / hist.sum(axis=-1, keepdims=True)
-            hist[np.isnan(hist)] = 0
-            onedhist = np.reshape(hist, [-1])
-            return onedhist
-
-        if self.block >= 1:
-            hists = []
-            for i in range(3):
-                hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
-            for divisions in range(1, self.block + 1):
-                imgheight = img.shape[0]
-                imgwidth = img.shape[1]
-
-                M = imgheight // 2 ** divisions
-                N = imgwidth // 2 ** divisions
-
-                for y in range(0, imgheight, M):
-                    for x in range(0, imgwidth, N):
-                        for i in range(3):
-                            submask = mask[y : y + M, x : x + N] if mask else None
-                            hists.append(
-                                cv2.calcHist(
-                                    [img[y : y + M, x : x + N]],
-                                    [i],
-                                    submask,
-                                    [256],
-                                    [0, 256],
-                                )
-                            )
-            return hists
-
-        if self.multires > 1:
-            hists = []
-            for i in range(3):
-                hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
-            for res in range(2, self.multires + 1):
-                imgheight = img.shape[0] // res
-                imgwidth = img.shape[1] // res
-                for i in range(3):
-                    submask = (
-                        cv2.resize(mask, (imgwidth, imgheight)) if self.mask else None
-                    )
-                    downscale = cv2.resize(img, (imgwidth, imgheight))
-                    hists.append(
-                        cv2.calcHist([downscale], [i], submask, [256], [0, 256])
-                    )
-            return hists
-
-        return np.array(
-            [
-                cv2.calcHist([img], [0], mask, [256], [0, 256]),
-                cv2.calcHist([img], [1], mask, [256], [0, 256]),
-                cv2.calcHist([img], [2], mask, [256], [0, 256]),
-                cv2.calcHist([hsv], [0], mask, [256], [0, 256]),
-                cv2.calcHist([hsv], [1], mask, [256], [0, 256]),
-                cv2.calcHist([hsv], [2], mask, [256], [0, 256]),
-                cv2.calcHist([lab], [0], mask, [256], [0, 256]),
-                cv2.calcHist([lab], [1], mask, [256], [0, 256]),
-                cv2.calcHist([lab], [2], mask, [256], [0, 256]),
-            ]
-        )
-
-    def _calculate(self, idx):
-        self.cache[idx] = self.normalize(self.calc_hist(idx))
-        return self.cache[idx]
-
-    def normalize(self, hist):
-        return normalize_hist(hist)
-
-    def __getitem__(self, idx):
-        if self.caching:
-            return self.cache[idx] if idx in self.cache else self._calculate(idx)
-        return self.normalize(self.calc_hist(super().__getitem__(idx)))
+#     def get_masks(self, idx):
+#         img = Dataset.__getitem__(self, idx)
+#         bbox = BBox().get_bbox(img)
+#         for mask in Splitter(img):
+#             res = mask + bbox
+#             res[res != 0] = 255
+#             yield res
 
 
-class MultiHistDataset(HistDataset):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# class MultiHistDataset(HistDataset):
+#     def __init__(self, *args, **kwargs):a
+#         super().__init__(*args, **kwargs)
 
-    def normalize(self, hists):
-        return [normalize_hist(h) for h in hists]
+#     def normalize(self, hists):
+#         return [normalize_hist(h) for h in hists]
 
-    def calc_hist(self, idx):
-        img = Dataset.__getitem__(self, idx)
-        return [self._calc_hist(img, mask) for mask in self.get_masks(idx)]
+#     def calc_hist(self, idx):
+#         img = Dataset.__getitem__(self, idx)
+#         return [self._calc_hist(img, mask) for mask in self.get_masks(idx)]
 
 
-class MaskDataset:
-    def __init__(self, path):
-        self.paths = sorted(glob.glob(f"{path}/*.png"))
+# class MaskDataset:
+#     def __init__(self, path):
+#         self.paths = sorted(glob.glob(f"{path}/*.png"))
 
-    def __getitem__(self, idx):
-        mask = cv2.imread(self.paths[idx], cv2.IMREAD_GRAYSCALE)
-        return cv2.threshold(mask, 128, 1, cv2.THRESH_BINARY)[1]
+#     def __getitem__(self, idx):
+#         mask = cv2.imread(self.paths[idx], cv2.IMREAD_GRAYSCALE)
+#         return cv2.threshold(mask, 128, 1, cv2.THRESH_BINARY)[1]
 
-    def __len__(self):
-        return len(self.paths)
+#     def __len__(self):
+#         return len(self.paths)
