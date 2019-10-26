@@ -35,8 +35,15 @@ def getpoints(im):
     return final
 
 
-def getpoints2(im):
+def getpoints2(im, mask):
+    mask_idxs = np.where(mask == 1)
+    xs = mask_idxs[0]
+    ys = mask_idxs[1]
+    im_masked = im[min(xs):max(xs), min(ys):max(ys)]
+    return getpoints2(im_masked)
 
+
+def getpoints2(im):
     # ___GET Y INSIDE TEXT___
 
     grad_neighb_divider = 1000
@@ -202,6 +209,7 @@ def getpoints2(im):
                 b1 += action
                 diff = 1
         if diff == 1:
+            # reduce temporaly bounding box in y direction to allow growth in x direction
             b1 -= 5 * action
         return b1, diff
 
@@ -218,12 +226,8 @@ def getpoints2(im):
                 b1 += action
         return b1
 
-    boundingxy[1], diff1 = moveboundy(
-        0, boundingxy[1], boundingxy[0], boundingxy[2], -1, 0
-    )
-    boundingxy[3], diff2 = moveboundy(
-        gray_b.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 1, 0
-    )
+    boundingxy[1], diff1 = moveboundy(0, boundingxy[1], boundingxy[0], boundingxy[2], -1, 0)
+    boundingxy[3], diff2 = moveboundy(gray_b.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 1, 0)
     boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], 0, -1)
     boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], im.shape[1], 1)
 
