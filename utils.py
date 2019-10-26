@@ -89,6 +89,7 @@ def get_mean_IoU(gts, preds):
     result = 0
     for x in range(len(gts)):
         result += dist.intersection_over_union(gts[x], preds[x])
+        print("mean IoU: ", dist.intersection_over_union(gts[x], preds[x]))
     return result / len(preds)
 
 

@@ -6,6 +6,7 @@ import utils
 import math
 
 import scipy.signal as sci
+import distance as dist
 
 
 class text_remover(dataset.Dataset):
@@ -42,14 +43,14 @@ def getpoints2(im):
 
     blur = cv2.GaussianBlur(im, (15, 15), 0)
 
-    sobel_x = cv2.Sobel(blur, cv2.CV_64F, 1, 0, ksize=5)
-    sobel_x = np.abs(sobel_x)
-    sobel_x = (sobel_x / np.amax(sobel_x) * 255).astype("uint8")
+    sobel_x_op = cv2.Sobel(blur, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x_op = np.abs(sobel_x_op)
+    sobel_x_op = (sobel_x_op / np.amax(sobel_x_op) * 255).astype("uint8")
 
-    h, l, s = cv2.split(cv2.cvtColor(sobel_x, cv2.COLOR_BGR2HLS))
+    h, l, s = cv2.split(cv2.cvtColor(sobel_x_op, cv2.COLOR_BGR2HLS))
     s_f = s.astype("float16")
 
-    sobel_x_mod = cv2.cvtColor(sobel_x, cv2.COLOR_BGR2GRAY).astype("float16")
+    sobel_x_mod = cv2.cvtColor(sobel_x_op, cv2.COLOR_BGR2GRAY).astype("float16")
 
     sobel_x_mod -= s_f
     sobel_x_mod[sobel_x_mod < 0] = 0
@@ -58,15 +59,11 @@ def getpoints2(im):
     sobel_x_mod = sobel_x_mod.astype("uint8")
     sobel_x_mod[sobel_x_mod < sobel_x_thresh] = 0
 
-    start_x = round(im.shape[1] / 3)
-    end_x = round(2 * im.shape[1] / 3)
+    start_x = round(3 * im.shape[1] / 8)
+    end_x = round(5 * im.shape[1] / 8)
 
     min_y = 0
     min_value = 99999999999999
-    min_y2 = 0
-    min_value2 = 99999999999999
-    min_y3 = 0
-    min_value3 = 99999999999999
 
     im_m = np.copy(im)
 
@@ -78,7 +75,6 @@ def getpoints2(im):
         mean_b = np.mean(blur[j_p][start_x:end_x])
         for x in range(start_x, end_x):
             grad_devia += abs(mean_b - blur[j_p, x])
-            #im_m[j_p,x] = [255, 0, 0]
 
         for x in range(start_x, end_x):
             grad_x_neighb += sobel_x_mod[j_p + 1, x]
@@ -89,7 +85,6 @@ def getpoints2(im):
         new_value = sum(grad_devia) / grad_x_neighb
 
         if new_value < min_value:
-            #print("NV: ", new_value, " Mean", sum(grad_devia), " X_Neighb", grad_x_neighb)
             min_value = new_value
             min_y = j_p
 
@@ -119,10 +114,12 @@ def getpoints2(im):
     im_m[min_y - pad:min_y + pad, start_x:end_x] = [0, 0, 255]
     im_m[min_y, start_x:end_x] = [255, 0, 0]
 
-    im_m[min_y - 20 - pad:min_y - 20 + pad, start_x:end_x] = [0, 255, 0]
+    im_m[min_y - 10 - pad:min_y - 10 + pad, start_x:end_x] = [0, 255, 0]
 
-    boundingxy = [start_x, min_y - 20, end_x, min_y]
-    print(boundingxy)
+    boundingxy = [start_x, min_y - 10, end_x, min_y]
+    boundingxy2 = [start_x, min_y - 10, end_x, min_y]
+
+    #print(boundingxy)
 
     im_m = cv2.rectangle(
         im_m,
@@ -133,10 +130,6 @@ def getpoints2(im):
     )
 
     res = 50
-    cv2.imshow("image", utils.resize(im_m, res))
-    #cv2.imshow("sobel", utils.resize(sobel_x, res))
-    #cv2.imshow("saturation", utils.resize(s, res))
-    #cv2.imshow("joined", utils.resize(sobel_x_mod, res))
 
     # ___GET BOUNDARIES___
 
@@ -144,14 +137,14 @@ def getpoints2(im):
 
     # Otsu's thresholding
     blur = cv2.GaussianBlur(im, (5, 5), 0)
-    gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
-    imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
+    gray_b = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+    blur_g = np.copy(gray_b)
+    imx = np.copy(gray_b[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
 
-    cv2.imshow("a", imx)
+    #cv2.imshow("a", imx)
 
     ima, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    print(th2)
     minv = np.min(th2)
     maxv = np.max(th2)
     meanv = np.mean(th2)
@@ -184,11 +177,11 @@ def getpoints2(im):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
 
     if diffmin < diffmax:
-        print("Background black")
-        gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
+        #print("Background black")
+        gray_b = cv2.morphologyEx(gray_b, cv2.MORPH_OPEN, kernel)
     else:
-        print("Background white")
-        gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+        #print("Background white")
+        gray_b = cv2.morphologyEx(gray_b, cv2.MORPH_CLOSE, kernel)
 
     scale = 1
     delta = 0
@@ -196,24 +189,52 @@ def getpoints2(im):
 
     pad = 5000
 
-    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x_op = cv2.Sobel(gray_b, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x_op = np.abs(sobel_x_op)
+    sobel_x_op = (sobel_x_op / np.amax(sobel_x_op) * 255).astype("uint8")
+
+    sobel_y_op = cv2.Sobel(gray_b, cv2.CV_64F, 0, 1, ksize=5)
+    sobel_y_op = np.abs(sobel_y_op)
+    sobel_y_op = (sobel_y_op / np.amax(sobel_y_op) * 255).astype("uint8")
+
+    sobel_y_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+    sobel_x_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+
+    #############
+
+    sobel_x = cv2.Sobel(blur_g, cv2.CV_64F, 1, 0, ksize=5)
     sobel_x = np.abs(sobel_x)
     sobel_x = (sobel_x / np.amax(sobel_x) * 255).astype("uint8")
 
-    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=5)
+    sobel_y = cv2.Sobel(blur_g, cv2.CV_64F, 0, 1, ksize=5)
     sobel_y = np.abs(sobel_y)
     sobel_y = (sobel_y / np.amax(sobel_y) * 255).astype("uint8")
 
+    kernel = np.ones((15, 15), np.uint8)
+    sobel_x_d = cv2.dilate(sobel_x, kernel, iterations=1)
+    sobel_y_d = cv2.dilate(sobel_y, kernel, iterations=1)
+
+    sobel_RY = sobel_y.astype("float") - sobel_x_d.astype("float")
+    sobel_RY[sobel_RY < 0] = 0
+    sobel_RY = sobel_RY.astype("uint8")
+
+    sobel_RX = sobel_x.astype("float") - sobel_y_d.astype("float")
+    sobel_RX[sobel_RX < 0] = 0
+    sobel_RX = sobel_RX.astype("uint8")
+
     sobel_y[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
     sobel_x[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+
+    ########
 
     thresh = 20
 
     def moveboundy(maxsize, b1, b2, b3, pad, action, diff=-1):
         for i in range(b1, min(b1 + pad, maxsize), action):
             broken = False
+
             for j in range(b2, b3):
-                if sobel_y[i, j] > thresh:
+                if sobel_y_op[i, j] > thresh:
                     broken = True
                     if diff == 1:
                         b1 -= 5 * action
@@ -229,7 +250,7 @@ def getpoints2(im):
         for j in range(b1, min(b1 + pad, im.shape[1]), action):
             broken = False
             for i in range(b2, b3):
-                if sobel_x[i, j] > thresh:
+                if sobel_x_op[i, j] > thresh:
                     broken = True
                     break
             if broken:
@@ -244,7 +265,7 @@ def getpoints2(im):
     )
     diff2 = 0
     boundingxy[3], diff2 = moveboundy(
-        gray.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], pad, 1, diff2
+        gray_b.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], pad, 1, diff2
     )
     boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], -pad, -1)
     boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], pad, 1)
@@ -255,19 +276,33 @@ def getpoints2(im):
     if diff2 == 1:
         boundingxy[3] += 5
 
-    drawing = cv2.rectangle(
-        im,
+    ima = np.copy(im)
+    cv2.rectangle(
+        ima,
         (boundingxy[0], boundingxy[1]),
         (boundingxy[2], boundingxy[3]),
         (255, 0, 0),
         2,
     )
 
-    res = 50
-    cv2.imshow("gray", utils.resize(gray, res))
+    drawing = cv2.rectangle(
+        ima,
+        (boundingxy2[0], boundingxy2[1]),
+        (boundingxy2[2], boundingxy2[3]),
+        (0, 255, 0),
+        2,
+    )
+
+    res = 30
 
     if True:
-        cv2.imshow("b", utils.resize(im, 50))
+        cv2.imshow("b", utils.resize(ima, 50))
+
+        #gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w3/text_boxes.pkl")).squeeze()
+
+        #for x in range(len(gt)):
+            #result = dist.intersection_over_union(gt[x], boundingxy)
+            #print(x, " mean IoU: ", result)
         cv2.waitKey(0)
 
     class Result:
