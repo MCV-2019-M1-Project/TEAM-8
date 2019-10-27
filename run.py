@@ -9,7 +9,7 @@ import ml_metrics as metrics
 from tqdm.auto import tqdm
 
 import text_removal
-from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle, get_gt_text, compute_lev, get_hog_histogram
+from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle, get_gt_text, compute_lev, get_hog_histograms
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset, BBox
 import distance as dist
 
@@ -101,16 +101,18 @@ class Solution:
         find_img_corresp(QS2, GT, DB, k)
 
     def task_w2(self):
-        print("Computing bounding boxes and reading text")
+        print("Loading images...")
         QS1 = text_removal.text_remover(self.QSD1_W3)
         DDBB = text_removal.text_remover(self.DDBB)
 
-        hogs_qs = get_hog_histogram(QS1)
-        hogs_ddbb = get_hog_histogram(DDBB)
+        print("\nComputing histograms...")
+        hogs_qs = get_hog_histograms(QS1)
+        hogs_ddbb = get_hog_histograms(DDBB)
 
+        print("\nComputing pairs...")
         predictions = []
 
-        for x in range(len(hogs_qs)):
+        for x in tqdm(range(len(hogs_qs))):
             min_diff_pos = 0
             min_diff_value = 999999999999999
 
@@ -119,10 +121,10 @@ class Solution:
                 if diff < min_diff_value:
                     min_diff_value = diff
                     min_diff_pos = y
-            print(x, "of", len(hogs_qs))
             predictions.append(min_diff_pos)
 
-        print(predictions)
+        print("\n", predictions)
+        print("Computing bounding boxes and reading text...")
         results = [text_removal.getpoints2(im) for im in tqdm(QS1)]
 
         bbs_predicted = [element.boundingxy for element in results]
@@ -131,7 +133,7 @@ class Solution:
 
         bbs_gt = np.asarray(get_groundtruth(f"{self.QSD1_W3}/text_boxes.pkl")).squeeze()
         mean_iou = get_mean_IoU(bbs_gt, bbs_predicted)
-        print("Mean Intersection over Union: ", mean_iou)
+        print("\nMean Intersection over Union: ", mean_iou)
 
         texts_gt = get_gt_text(f"{self.QSD1_W3}")
         mean_lev = compute_lev(texts_gt, texts_predicted)

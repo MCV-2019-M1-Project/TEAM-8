@@ -169,15 +169,14 @@ def get_gt_text(path):
     return result
 
 
-def get_hog_histogram(imgs):
-    hogs_imgs = []
-    for x in range(len(imgs)):
-        img = imgs[x]
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = cv2.resize(img, (256, 256))
-        descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8),
-                                  cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1", feature_vector=False)
-        hogs_imgs.append(descriptors.ravel())
+def get_hog_histogram(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img, (256, 256))
+    descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8),
+                              cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1", feature_vector=False)
+    return descriptors.ravel()
 
+
+def get_hog_histograms(imgs):
+    hogs_imgs = [get_hog_histogram(imgs[x]) for x in tqdm(range(len(imgs)))]
     return hogs_imgs
-

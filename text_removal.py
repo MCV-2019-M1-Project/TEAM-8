@@ -8,11 +8,13 @@ import math
 import scipy.signal as sci
 import distance as dist
 import pytesseract
+from tqdm.auto import tqdm
 
 
 class text_remover(dataset.Dataset):
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.cache = [cv2.imread(path) for path in tqdm(self.paths)]
 
     def __getitem__(self, idx):
         return super().__getitem__(idx)
