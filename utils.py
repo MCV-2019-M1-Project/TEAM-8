@@ -6,6 +6,9 @@ from tqdm.auto import tqdm
 
 from mask_metrics import MaskMetrics
 import distance as dist
+import Levenshtein as lev
+import glob
+from skimage import feature
 
 
 def calc_similarities(measure, db, qs, show_progress=False):
@@ -88,7 +91,10 @@ def get_mask_metrics(pred, gt, show_progress):
 def get_mean_IoU(gts, preds):
     result = 0
     for x in range(len(gts)):
-        result += dist.intersection_over_union(gts[x], preds[x])
+        res = dist.intersection_over_union(gts[x], preds[x])
+        if res < 0.8:
+            print("  Mean IoU at:", x, ":", dist.intersection_over_union(gts[x], preds[x]))
+        result += res
     return result / len(preds)
 
 
@@ -143,6 +149,37 @@ def get_pickle(path):
 def dump_pickle(path, data):
     with open(path, "wb") as f:
         pickle.dump(data, f)
+
+
+def compute_lev(gts, preds):
+    result = 0
+    for x in range(len(preds)):
+        res = lev.distance(gts[x], preds[x])
+        if res != 0:
+            print("  Lev distance at", x, ":", res)
+        result += res
+    return result / len(preds)
+
+
+def get_gt_text(path):
+    paths = sorted(glob.glob(f"{path}/*.txt"))
+    result = []
+    for path in paths:
+        result.append(open(path, "r").read().split("'")[1])
+    return result
+
+
+def get_hog_histogram(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img, (256, 256))
+    descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8),
+                              cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1", feature_vector=False)
+    return descriptors.ravel()
+
+
+def get_hog_histograms(imgs):
+    hogs_imgs = [get_hog_histogram(imgs[x]) for x in tqdm(range(len(imgs)))]
+    return hogs_imgs
 
 def denoise_image(img, method="Gaussian"):
     if method == "Gaussian":

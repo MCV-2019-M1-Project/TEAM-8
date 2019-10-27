@@ -5,107 +5,115 @@ import cv2
 import utils
 import math
 
+import scipy.signal as sci
+import distance as dist
+import pytesseract
+from tqdm.auto import tqdm
+
 
 class text_remover(dataset.Dataset):
     def __init__(self, path):
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
+        self.cache = [cv2.imread(path) for path in tqdm(self.paths)]
 
     def __getitem__(self, idx):
         return super().__getitem__(idx)
 
 
-def getpoints(im):
-
-    ret, thresh1 = cv2.threshold(im[:, :, 0], 200, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((4, 4), np.uint8)
-    sure_bg1 = cv2.erode(thresh1, kernel, iterations=3)
-
-    ret, thresh2 = cv2.threshold(im[:, :, 1], 200, 255, cv2.THRESH_BINARY)
-
-    sure_bg2 = cv2.erode(thresh2, kernel, iterations=3)
-
-    ret, thresh3 = cv2.threshold(im[:, :, 2], 200, 255, cv2.THRESH_BINARY)
-    sure_bg3 = cv2.erode(thresh3, kernel, iterations=3)
-
-    final = sure_bg1 - (sure_bg3 - sure_bg1 - sure_bg2)
-    return final
+def getpoints2(im, mask):
+    mask_idxs = np.where(mask == 1)
+    xs = mask_idxs[0]
+    ys = mask_idxs[1]
+    im_masked = im[min(xs):max(xs), min(ys):max(ys)]
+    return getpoints2(im_masked)
 
 
 def getpoints2(im):
-    # print(im.shape[0])
+    # ___GET SMALL BOUNDING BOX WITH NO FALSE POSITIVES___
+
+    grad_neighb_divider = 1000
+    sobel_x_thresh = 25
+
+    blur = cv2.GaussianBlur(im, (15, 15), 0)
+
+    sobel_x_op = cv2.Sobel(blur, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x_op = np.abs(sobel_x_op)
+    sobel_x_op = (sobel_x_op / np.amax(sobel_x_op) * 255).astype("uint8")
+
+    h, l, s = cv2.split(cv2.cvtColor(sobel_x_op, cv2.COLOR_BGR2HLS))
+    s_f = s.astype("float16")
+
+    sobel_x_mod = cv2.cvtColor(sobel_x_op, cv2.COLOR_BGR2GRAY).astype("float16")
+    sobel_x_mod -= s_f
+    sobel_x_mod[sobel_x_mod < 0] = 0
+
+    sobel_x_mod = sobel_x_mod / np.amax(sobel_x_mod) * 255
+    sobel_x_mod = sobel_x_mod.astype("uint8")
+    sobel_x_mod[sobel_x_mod < sobel_x_thresh] = 0
+
+    start_x = round(3 * im.shape[1] / 8)
+    end_x = round(5 * im.shape[1] / 8)
+
+    min_y = 0
+    min_value = 99999999999999
+
+    for y in range(round(im.shape[0] / 4 - 4)):
+        j_p = round(3 * im.shape[0] / 4) + y
+        grad_devia = 0
+        grad_x_neighb = 0
+
+        mean_b = np.mean(blur[j_p][start_x:end_x])
+        for x in range(start_x, end_x):
+            grad_devia += abs(mean_b - blur[j_p, x])
+
+        for x in range(start_x, end_x):
+            grad_x_neighb += sobel_x_mod[j_p + 1, x]
+            grad_x_neighb += sobel_x_mod[j_p + 2, x]
+            grad_x_neighb += sobel_x_mod[j_p + 3, x]
+
+        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb / grad_neighb_divider
+        new_value = sum(grad_devia) / grad_x_neighb
+
+        if new_value < min_value:
+            min_value = new_value
+            min_y = j_p
+
+        ##########
+
+        j_m = round(im.shape[0] / 4) - y
+        grad_devia = 0
+        grad_x_neighb = 0
+
+        mean_b = np.mean(blur[j_m][start_x:end_x])
+        for x in range(start_x, end_x):
+            grad_devia += abs(mean_b - blur[j_m, x])
+
+        for x in range(start_x, end_x):
+            grad_x_neighb += sobel_x_mod[j_m - 1, x]
+            grad_x_neighb += sobel_x_mod[j_m - 2, x]
+            grad_x_neighb += sobel_x_mod[j_m - 3, x]
+
+        grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb / grad_neighb_divider
+        new_value = sum(grad_devia) / grad_x_neighb
+
+        if new_value < min_value:
+            min_value = new_value
+            min_y = j_m
+
+    boundingxy_initial = [start_x, min_y - 10, end_x, min_y]
+    boundingxy = np.copy(boundingxy_initial)
+
+    # ___EXPAND BOUNDING BOX TO GET LESS FALSE NEGATIVES___
+
+    # Otsu's thresholding.
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    imager = im[:, :, 0]
-    imageg = im[:, :, 1]
-    imageb = im[:, :, 2]
-    output = np.equal(imager, imageg, dtype=int)
-    output2 = np.equal(imager, imageb, dtype=int)
-    output1 = np.equal(imageb, imageg, dtype=int)
-    output3 = output & output2
-    output4 = output3 & output1
-    mask = 255 * output4
-    mask1 = mask.astype(np.uint8)
-    # gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    # ret, thresh = cv2.threshold(
-    # gray, 200, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((int((im.shape[0]) / 350), int((im.shape[1]) / 35)), np.uint8)
+    blur = cv2.GaussianBlur(im, (5, 5), 0)
+    gray_b = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
+    imx = np.copy(gray_b[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
 
-    denoised = cv2.erode(mask1, kernel, iterations=5)
-    # denoised = cv2.erode(denoised, kernel, iterations=1)
-    denoised = cv2.dilate(denoised, kernel, iterations=3)
-    denoised = cv2.dilate(denoised, kernel, iterations=2)
-
-    canny_output = cv2.Canny(denoised, 200, 255)
-    contours, hierarchy = cv2.findContours(
-        canny_output, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
-    contours_poly = [None] * len(contours)
-    boundRect = [None] * len(contours)
-    drawing = np.zeros(
-        (canny_output.shape[0], canny_output.shape[1], 3), dtype=np.uint8
-    )
-    drawing[:, :, 0] = gray
-    drawing[:, :, 1] = gray
-    drawing[:, :, 2] = gray
-    max_area = 0
-    max = 0
-    for i, c in enumerate(contours):
-        contours_poly[i] = cv2.approxPolyDP(c, 3, True)
-        boundRect[i] = cv2.boundingRect(contours_poly[i])
-        area = boundRect[i][2] * boundRect[i][3]
-        if (area > max_area) & (boundRect[i][3] < boundRect[i][2]):
-            max = boundRect[i]
-            max_area = area
-        # FIXME(Beto): If there're two areas of the same size Eddie says it's not worki
-        if area == max_area:
-            max = boundRect[i]
-        boundRect[i] = max
-
-    for i in range(len(contours)):
-        # cv2.drawContours(drawing, contours_poly, i, (0, 255, 0))
-        cv2.rectangle(
-            drawing,
-            (int(boundRect[-1][0]), int(boundRect[-1][1])),
-            (
-                int(boundRect[-1][0] + boundRect[-1][2]),
-                int(boundRect[-1][1] + boundRect[-1][3]),
-            ),
-            (0, 255, 0),
-            2,
-        )
-
-    boundingxy = [
-        boundRect[-1][0] + 5,
-        boundRect[-1][1] + 5,
-        boundRect[-1][0] + boundRect[-1][2] - 5,
-        boundRect[-1][1] + boundRect[-1][3] - 5,
-    ]
-
-    # Betos Post-Processing from here on
-
-    # Otsu's thresholding
-    imx = np.copy(gray[boundingxy[1] : boundingxy[3], boundingxy[0] : boundingxy[2]])
     ima, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
+    # Getting info about if the image needs to be opened / closed to remove text from textbox.
     minv = np.min(th2)
     maxv = np.max(th2)
     meanv = np.mean(th2)
@@ -113,20 +121,19 @@ def getpoints2(im):
     diffmin = abs(meanv - minv)
     diffmax = abs(meanv - maxv)
 
-    th3 = np.copy(th2)
-
     if diffmin < diffmax:
-        imb, th3 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        imb, th2 = cv2.threshold(imx, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    maxkernel = 0
+    # Getting good kernel size for opening / closing to remove text from textbox.
+    maxkernel = 3
 
     for i in range(0, imx.shape[0]):
         for j in range(0, imx.shape[1]):
-            if th3[i, j] == 0:
-                for v in range(1, 15, 2):
+            if th2[i, j] == 0:
+                for v in range(5, 13, 2):
                     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (v, v))
                     w = math.floor(v / 2)
-                    roi = th3[i - w : i + w + 1, j - w : j + w + 1]
+                    roi = th2[i - w : i + w + 1, j - w : j + w + 1]
 
                     if roi.shape == kernel.shape:
                         k = (roi * kernel).sum()
@@ -134,67 +141,51 @@ def getpoints2(im):
                             if v > maxkernel:
                                 maxkernel = v
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (maxkernel + 6, maxkernel + 6))
+    ksize = maxkernel + 10
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
 
     if diffmin < diffmax:
-        gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
+        gray_b = cv2.morphologyEx(gray_b, cv2.MORPH_OPEN, kernel)
     else:
-        gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+        gray_b = cv2.morphologyEx(gray_b, cv2.MORPH_CLOSE, kernel)
 
-    scale = 1
-    delta = 0
-    ddepth = cv2.CV_16S
+    # Getting gradients from opening / closing.
+    sobel_x_op = cv2.Sobel(gray_b, cv2.CV_64F, 1, 0, ksize=5)
+    sobel_x_op = np.abs(sobel_x_op)
+    sobel_x_op = (sobel_x_op / np.amax(sobel_x_op) * 255).astype("uint8")
 
-    grad_x = cv2.Sobel(
-        gray,
-        ddepth,
-        1,
-        0,
-        ksize=3,
-        scale=scale,
-        delta=delta,
-        borderType=cv2.BORDER_DEFAULT,
-    )
-    grad_y = cv2.Sobel(
-        gray,
-        ddepth,
-        0,
-        1,
-        ksize=3,
-        scale=scale,
-        delta=delta,
-        borderType=cv2.BORDER_DEFAULT,
-    )
+    sobel_y_op = cv2.Sobel(gray_b, cv2.CV_64F, 0, 1, ksize=5)
+    sobel_y_op = np.abs(sobel_y_op)
+    sobel_y_op = (sobel_y_op / np.amax(sobel_y_op) * 255).astype("uint8")
 
-    abs_grad_x = cv2.convertScaleAbs(grad_x)
-    abs_grad_y = cv2.convertScaleAbs(grad_y)
+    sobel_y_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
+    sobel_x_op[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]] = 0
 
-    grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
-    thresh = 15
+    # Expanding bbox until high gradients are found (border of text box).
+    thresh = 20
 
-    grad[boundingxy[1] : boundingxy[3], boundingxy[0] : boundingxy[2]] = 0
-
-    def moveboundy(maxsize, b1, b2, b3, pad, action, diff=-1):
-        for i in range(b1, min(b1 + pad, maxsize), action):
+    def moveboundy(range_m, b1, b2, b3, action, diff=-1):
+        for i in range(b1, range_m, action):
             broken = False
             for j in range(b2, b3):
-                if grad[i, j] > thresh:
+                if sobel_y_op[i, j] > thresh:
                     broken = True
-                    if diff == 1:
-                        b1 -= 2 * action
                     break
             if broken:
                 break
             else:
                 b1 += action
                 diff = 1
-        return (b1, diff)
+        if diff == 1:
+            # Reduce temporaly bounding box in y direction to allow growth in x direction.
+            b1 -= 5 * action
+        return b1, diff
 
-    def moveboundx(b1, b2, b3, pad, action):
-        for j in range(b1, b1 + pad, action):
+    def moveboundx(b1, b2, b3, range_m, action):
+        for j in range(b1, range_m, action):
             broken = False
             for i in range(b2, b3):
-                if grad[i, j] > thresh:
+                if sobel_x_op[i, j] > thresh:
                     broken = True
                     break
             if broken:
@@ -203,77 +194,55 @@ def getpoints2(im):
                 b1 += action
         return b1
 
-    diff1 = 0
-    boundingxy[1], diff1 = moveboundy(
-        999999999, boundingxy[1], boundingxy[0], boundingxy[2], -50, -1, diff1
-    )
-    diff2 = 0
-    boundingxy[3], diff2 = moveboundy(
-        grad.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 50, 1, diff2
-    )
-    boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], -50, -1)
-    boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], 50, 1)
+    boundingxy[1], diff1 = moveboundy(0, boundingxy[1], boundingxy[0], boundingxy[2], -1, 0)
+    boundingxy[3], diff2 = moveboundy(gray_b.shape[0], boundingxy[3], boundingxy[0], boundingxy[2], 1, 0)
+    boundingxy[0] = moveboundx(boundingxy[0], boundingxy[1], boundingxy[3], 0, -1)
+    boundingxy[2] = moveboundx(boundingxy[2], boundingxy[1], boundingxy[3], im.shape[1], 1)
 
-    drawing = cv2.rectangle(
+    if diff1 == 1:
+        boundingxy[1] -= 5
+
+    if diff2 == 1:
+        boundingxy[3] += 5
+
+    # Drawing initial and expanded bbox.
+
+    drawing = np.copy(im)
+    cv2.rectangle(
         drawing,
         (boundingxy[0], boundingxy[1]),
         (boundingxy[2], boundingxy[3]),
-        (0, 255, 255),
+        (255, 0, 0),
         2,
     )
 
-    if diff1 == 1:
-        boundingxy[1] -= 2
+    cv2.rectangle(
+        drawing,
+        (boundingxy_initial[0], boundingxy_initial[1]),
+        (boundingxy_initial[2], boundingxy_initial[3]),
+        (0, 255, 0),
+        2,
+    )
 
-    if diff2 == 1:
-        boundingxy[3] += 2
+    imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
+    pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
+    text = pytesseract.image_to_string(imx)
+
+    mask = np.ones((im.shape[0], im.shape[1]))
+    cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
 
     if False:
-        cv2.imshow("b", utils.resize(im, 50))
-        cv2.imshow("c", utils.resize(drawing, 50))
+        cv2.imshow("Drawing", utils.resize(drawing, 50))
+        cv2.imshow("Mask", utils.resize(mask, 50))
+        #cv2.imshow("Sobel x", utils.resize(sobel_x_op, 50))
+        #cv2.imshow("Sobel y", utils.resize(sobel_y_op, 50))
         cv2.waitKey(0)
 
     class Result:
-        def __init__(self, boundingxy, drawing):
+        def __init__(self, boundingxy, drawing, text, mask):
             self.boundingxy = boundingxy
             self.drawing = drawing
+            self.text = text
+            self.mask = mask
 
-    return Result(boundingxy, drawing)
-
-
-def getpoints3(im):
-    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    imagehigh = gray > 200
-    imagelow = gray < 50
-    imager = im[:, :, 0]
-    imageg = im[:, :, 1]
-    imageb = im[:, :, 2]
-    output = np.equal(imager, imageg, dtype=int)
-    output2 = np.equal(imager, imageb, dtype=int)
-    output1 = np.equal(imageb, imageg, dtype=int)
-    output3 = output & output2
-    output4 = output3 & output1
-    equalhigh = output4 & imagehigh
-    equallow = output4 & imagelow
-
-    kernel = np.ones((int((im.shape[0]) / 350), int((im.shape[1]) / 20)), np.uint8)
-    equallow = 255 * equallow
-    equallow = equallow.astype(np.uint8)
-    equalhigh = 255 * equalhigh
-    equalhigh = equalhigh.astype(np.uint8)
-
-    equalhigh = cv2.erode(equalhigh, kernel, iterations=1)
-    equalhigh = cv2.dilate(equalhigh, kernel, iterations=6)
-    equalhigh = cv2.erode(equalhigh, kernel, iterations=7)
-    if equalhigh.any() > 0:
-        print("imatge blanca")
-        # TODO: Probar amb el threshold aqui,
-        # ja que saps si es blanca o negre amb un 1/30 de error.
-        # TODO(Stas): Please comment in English
-        final = 255 * imagehigh
-        final = final.astype(np.uint8)
-    else:
-        print("imatge negre")
-        final = None
-
-    return final
+    return Result(boundingxy, drawing, text, mask)

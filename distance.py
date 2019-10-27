@@ -66,3 +66,7 @@ def intersection_over_union(boxA, boxB):
 
     # return the intersection over union value
     return iou
+
+
+def compare_hogs(hog1, hog2):
+    return sum(np.abs(hog1 - hog2))

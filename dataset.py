@@ -152,9 +152,10 @@ class Dataset:
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
         self.masking = masking
         self.bbox = bbox
+        self.cache = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-        return cv2.imread(self.paths[idx])
+        return self.cache[idx]
 
     def __len__(self):
         return len(self.paths)
