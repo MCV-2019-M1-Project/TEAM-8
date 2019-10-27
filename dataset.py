@@ -152,10 +152,9 @@ class Dataset:
         self.paths = sorted(glob.glob(f"{path}/*.jpg"))
         self.masking = masking
         self.bbox = bbox
-        self.cache = [cv2.imread(path) for path in self.paths]
 
     def __getitem__(self, idx):
-        return self.cache[idx]
+        return cv2.imread(self.paths[idx])
 
     def __len__(self):
         return len(self.paths)
@@ -292,15 +291,8 @@ class HistDataset(Dataset):
             )
         elif self.method == "texture":
             if self.texture == "LBP":
-                if self.masking or self.bbox:
-                    new_mask = mask[:, :] / 255
-                else:
-                    new_mask = np.ones((img.shape[0], img.shape[1]))
-                lbp = get_lbp(img)
-                (hist, _) = np.histogram(lbp.ravel(),
-                                         bins=np.arange(0, 256),
-                                         range=(0, 256), weights=new_mask.ravel())
-                return hist
+                lbp = get_lbp(img, 4, 4, mask if self.masking or self.bbox else None)
+                return lbp
 
     def _calculate(self, idx):
         if self.dimensions == 1 and self.method != "texture":

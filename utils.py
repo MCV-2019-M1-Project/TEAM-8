@@ -50,7 +50,7 @@ def get_tops(similarities, k):
     where arr[i,j] is the index of j-th closest image in the database
     to i-th image in the queryset
     """
-    tops = similarities.argsort(axis=1)[:, :k]
+    tops = similarities.argsort(axis=1)[:, :k].tolist()
     return tops
 
 

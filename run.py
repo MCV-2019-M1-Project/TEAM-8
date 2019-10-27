@@ -26,6 +26,7 @@ from utils import (
 def find_img_corresp(QS, GT, DB, k):
     similarieties = calc_similarities(dist.canberra, DB, QS, True)
     tops = get_tops(similarieties, k)
+    dump_pickle("result.pkl", tops)
     mapAtK = metrics.mapk(GT, tops, k)
     print("Map@k is " + str(mapAtK))
 
@@ -50,7 +51,7 @@ def find_multi_img_corresp_keep(QS, DB, k):
 
     def get_multi_tops_keep(sims, k):
         sims = list(
-            map(lambda sims_pic: [sims.argsort()[:k] for sims in sims_pic], sims)
+            map(lambda sims_pic: [sims.argsort()[:k].tolist() for sims in sims_pic], sims)
         )
         return sims
 
@@ -97,10 +98,10 @@ class Solution:
         self.DDBB = DDBB
 
     def task2(self, k=10):
-        QS2 = HistDataset(self.QSD1_W3, method="color", masking=False, bbox=False, multires=4, denoise=False, texture="LBP")
+        QS2 = HistDataset(self.QSD1_W3, method="color", masking=False, bbox=True, multires=4, denoise=True, texture="LBP")
         GT = get_groundtruth("datasets/qsd1_w3/gt_corresps.pkl")
         print(f"Computing normalized histograms for {self.DDBB}")
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False, method="color", multires=4, texture="LBP")))
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, method="texture", multires=4, texture="LBP")))
         print("Analyzing QS2")
         find_img_corresp(QS2, GT, DB, k)
 
@@ -187,12 +188,11 @@ class Solution:
     def task6(self, k=10):
         QS = [  # noqa
             hists
-            for hists in tqdm(MultiHistDataset(self.QST1_W3, masking=False, bbox=False, multires=4, method="color", texture="LBP", denoise=False))
+            for hists in tqdm(MultiHistDataset(self.QSD2_W3, masking=False, bbox=True, multires=4, method="color", texture="LBP", denoise=False))
         ]
-        #GT = get_pickle("datasets/qsd2_w3/gt_corresps.pkl")
+        GT = get_pickle("datasets/qsd2_w3/gt_corresps.pkl")
         DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4, method="color", texture="LBP")))  # noqa
         tops = find_multi_img_corresp_keep(QS, DB, k)
-        exit()
         mapAtK = metrics.mapk(GT, tops, k)
         print("Map@k is " + str(mapAtK))
         exit()
