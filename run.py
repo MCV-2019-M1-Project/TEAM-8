@@ -8,12 +8,10 @@ import fire
 import ml_metrics as metrics
 from tqdm.auto import tqdm
 
-
 import text_removal
-from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle, get_gt_text, compute_lev
+from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle, get_gt_text, compute_lev, get_hog_histogram
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset, BBox
 import distance as dist
-
 
 
 from utils import (
@@ -78,7 +76,7 @@ def eval_masks(QS, MS_GT):
 class Solution:
     def __init__(
         self,
-        DDBB="datasets/bbdd_text",
+        DDBB="datasets/DDBB",
         QSD1_W1="datasets/qsd1_w1",
         QSD2_W1="datasets/qsd2_w1",
         QSD1_W2="datasets/qsd1_w2",
@@ -104,14 +102,32 @@ class Solution:
 
     def task_w2(self):
         print("Computing bounding boxes and reading text")
-        QS1 = [
-            text_removal.getpoints2(im)
-            for im in tqdm(text_removal.text_remover(self.QSD1_W3))
-        ]
+        QS1 = text_removal.text_remover(self.QSD1_W3)
+        DDBB = text_removal.text_remover(self.DDBB)
 
-        bbs_predicted = [element.boundingxy for element in QS1]
-        texts_predicted = [element.text for element in QS1]
-        images = [element.drawing for element in QS1]
+        hogs_qs = get_hog_histogram(QS1)
+        hogs_ddbb = get_hog_histogram(DDBB)
+
+        predictions = []
+
+        for x in range(len(hogs_qs)):
+            min_diff_pos = 0
+            min_diff_value = 999999999999999
+
+            for y in range(len(hogs_ddbb)):
+                diff = sum(np.abs(hogs_qs[x] - hogs_ddbb[y]))
+                if diff < min_diff_value:
+                    min_diff_value = diff
+                    min_diff_pos = y
+            print(x, "of", len(hogs_qs))
+            predictions.append(min_diff_pos)
+
+        print(predictions)
+        results = [text_removal.getpoints2(im) for im in tqdm(QS1)]
+
+        bbs_predicted = [element.boundingxy for element in results]
+        texts_predicted = [element.text for element in results]
+        images = [element.drawing for element in results]
 
         bbs_gt = np.asarray(get_groundtruth(f"{self.QSD1_W3}/text_boxes.pkl")).squeeze()
         mean_iou = get_mean_IoU(bbs_gt, bbs_predicted)

@@ -18,23 +18,6 @@ class text_remover(dataset.Dataset):
         return super().__getitem__(idx)
 
 
-def getpoints(im):
-
-    ret, thresh1 = cv2.threshold(im[:, :, 0], 200, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((4, 4), np.uint8)
-    sure_bg1 = cv2.erode(thresh1, kernel, iterations=3)
-
-    ret, thresh2 = cv2.threshold(im[:, :, 1], 200, 255, cv2.THRESH_BINARY)
-
-    sure_bg2 = cv2.erode(thresh2, kernel, iterations=3)
-
-    ret, thresh3 = cv2.threshold(im[:, :, 2], 200, 255, cv2.THRESH_BINARY)
-    sure_bg3 = cv2.erode(thresh3, kernel, iterations=3)
-
-    final = sure_bg1 - (sure_bg3 - sure_bg1 - sure_bg2)
-    return final
-
-
 def getpoints2(im, mask):
     mask_idxs = np.where(mask == 1)
     xs = mask_idxs[0]
@@ -59,7 +42,6 @@ def getpoints2(im):
     s_f = s.astype("float16")
 
     sobel_x_mod = cv2.cvtColor(sobel_x_op, cv2.COLOR_BGR2GRAY).astype("float16")
-
     sobel_x_mod -= s_f
     sobel_x_mod[sobel_x_mod < 0] = 0
 
@@ -262,41 +244,3 @@ def getpoints2(im):
             self.mask = mask
 
     return Result(boundingxy, drawing, text, mask)
-
-
-def getpoints3(im):
-    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    imagehigh = gray > 200
-    imagelow = gray < 50
-    imager = im[:, :, 0]
-    imageg = im[:, :, 1]
-    imageb = im[:, :, 2]
-    output = np.equal(imager, imageg, dtype=int)
-    output2 = np.equal(imager, imageb, dtype=int)
-    output1 = np.equal(imageb, imageg, dtype=int)
-    output3 = output & output2
-    output4 = output3 & output1
-    equalhigh = output4 & imagehigh
-    equallow = output4 & imagelow
-
-    kernel = np.ones((int((im.shape[0]) / 350), int((im.shape[1]) / 20)), np.uint8)
-    equallow = 255 * equallow
-    equallow = equallow.astype(np.uint8)
-    equalhigh = 255 * equalhigh
-    equalhigh = equalhigh.astype(np.uint8)
-
-    equalhigh = cv2.erode(equalhigh, kernel, iterations=1)
-    equalhigh = cv2.dilate(equalhigh, kernel, iterations=6)
-    equalhigh = cv2.erode(equalhigh, kernel, iterations=7)
-    if equalhigh.any() > 0:
-        print("imatge blanca")
-        # TODO: Probar amb el threshold aqui,
-        # ja que saps si es blanca o negre amb un 1/30 de error.
-        # TODO(Stas): Please comment in English
-        final = 255 * imagehigh
-        final = final.astype(np.uint8)
-    else:
-        print("imatge negre")
-        final = None
-
-    return final
