@@ -106,9 +106,9 @@ class Solution:
 
     def task_w2(self):
         print("Loading images...")
-        QS1 = text_removal.text_remover(self.QSD1_W3)
-        DDBB = text_removal.text_remover(self.DDBB)
-
+        QS1 = text_removal.text_remover(self.QST1_W3)
+        """DDBB = text_removal.text_remover(self.DDBB)
+        
         print("\nComputing histograms...")
         hogs_qs = get_hog_histograms(QS1)
         hogs_ddbb = get_hog_histograms(DDBB)
@@ -127,7 +127,7 @@ class Solution:
                     min_diff_pos = y
             predictions.append(min_diff_pos)
 
-        print("\n", predictions)
+        print("\n", predictions)"""
         print("Computing bounding boxes and reading text...")
         results = [text_removal.getpoints2(im) for im in tqdm(QS1)]
 
@@ -135,13 +135,18 @@ class Solution:
         texts_predicted = [element.text for element in results]
         images = [element.drawing for element in results]
 
-        bbs_gt = np.asarray(get_groundtruth(f"{self.QSD1_W3}/text_boxes.pkl")).squeeze()
-        mean_iou = get_mean_IoU(bbs_gt, bbs_predicted)
-        print("\nMean Intersection over Union: ", mean_iou)
+        for x in range(len(texts_predicted)):
+            file = open(str(x) + ".txt", "w")
+            file.write(texts_predicted[x])
+            file.close()
 
-        texts_gt = get_gt_text(f"{self.QSD1_W3}")
-        mean_lev = compute_lev(texts_gt, texts_predicted)
-        print("Mean Levenshtein distance: ", mean_lev)
+        #bbs_gt = np.asarray(get_groundtruth(f"{self.QSD1_W3}/text_boxes.pkl")).squeeze()
+        #mean_iou = get_mean_IoU(bbs_gt, bbs_predicted)
+        #print("\nMean Intersection over Union: ", mean_iou)
+
+        #texts_gt = get_gt_text(f"{self.QSD1_W3}")
+        #mean_lev = compute_lev(texts_gt, texts_predicted)
+        #print("Mean Levenshtein distance: ", mean_lev)
 
         for im in range(len(images)):
             cv2.imwrite("outputs/" + str(im) + ".png", images[im])
