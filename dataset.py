@@ -190,6 +190,7 @@ class HistDataset(Dataset):
     def __init__(
         self, *args, caching=True, method="color", dimensions=1, block=0, multires=0, denoise=False, texture="LBP", **kwargs
     ):
+        print("Method is " + method)
         self.caching = caching
         self.dimensions = dimensions
         self.block = block
@@ -291,11 +292,39 @@ class HistDataset(Dataset):
             )
         elif self.method == "texture":
             if self.texture == "LBP":
-                lbp = get_lbp(img, 4, 4, mask if self.masking or self.bbox else None)
+                lbp = get_lbp(img, 16, 16, mask if self.masking or self.bbox else None)
                 return lbp
+        elif self.method == "combo":
+            result = []
+            lbp = get_lbp(img, 16, 16, mask if self.masking or self.bbox else None)
+            hists = []
+            for i in range(3):
+                hists.append(cv2.calcHist([img], [i], mask, [256], [0, 256]))
+            for divisions in range(1, self.block + 1):
+                imgheight = img.shape[0]
+                imgwidth = img.shape[1]
+
+                M = imgheight // 2 ** divisions
+                N = imgwidth // 2 ** divisions
+
+                for y in range(0, imgheight, M):
+                    for x in range(0, imgwidth, N):
+                        for i in range(3):
+                            submask = mask[y: y + M, x: x + N] if self.masking else None
+                            tmp = cv2.calcHist(
+                                [img[y: y + M, x: x + N]],
+                                [i],
+                                submask,
+                                [256],
+                                [0, 256],
+                            )
+                            cv2.normalize(tmp, tmp)
+                    hists.append(tmp)
+                hists.append(lbp)
+            return hists
 
     def _calculate(self, idx):
-        if self.dimensions == 1 and self.method != "texture":
+        if self.dimensions == 1 and self.method != "texture" and self.method != "combo":
             self.cache[idx] = self.normalize(self.calc_hist(idx))
         else:
             self.cache[idx] = self.calc_hist(idx)

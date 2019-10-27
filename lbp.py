@@ -19,6 +19,7 @@ def get_lbp(img, blocks_h=0, blocks_v=0, mask=None):
     hists = []
     if mask is not None:
         mask = mask[:, :] / 255
+        mask = np.uint8(mask)
     else:
         mask = None
 
