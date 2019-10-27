@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 
 import text_removal
-from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle
+from utils import get_groundtruth, get_mean_IoU, dump_pickle, get_pickle, denoise_image
 from dataset import Dataset, MaskDataset, HistDataset, MultiHistDataset, BBox
 import distance as dist
 
@@ -81,18 +81,26 @@ class Solution:
         QSD2_W1="datasets/qsd2_w1",
         QSD1_W2="datasets/qsd1_w2",
         QSD2_W2="datasets/qst2_w2",
+        QSD1_W3="datasets/qsd1_w3",
+        QSD2_W3="datasets/qsd2_w3",
+        QST1_W3="datasets/qst1_w3",
+        QST2_W3="datasets/qst2_w3",
     ):
         self.QSD1_W1 = QSD1_W1
         self.QSD2_W1 = QSD2_W1
         self.QSD1_W2 = QSD1_W2
         self.QSD2_W2 = QSD2_W2
+        self.QSD1_W3 = QSD1_W3
+        self.QSD2_W3 = QSD2_W3
+        self.QST1_W3 = QST1_W3
+        self.QST2_W3 = QST2_W3
         self.DDBB = DDBB
 
     def task2(self, k=10):
-        QS2 = HistDataset(self.QSD2_W1, masking=True, multires=4)
-        GT = get_groundtruth("datasets/qsd2_w1/gt_corresps.pkl")
+        QS2 = HistDataset("datasets/qsd1_w3", method="color", masking=False, bbox=False, multires=4, denoise=False, texture="LBP")
+        GT = get_groundtruth("datasets/qsd1_w3/gt_corresps.pkl")
         print(f"Computing normalized histograms for {self.DDBB}")
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, method="color", multires=4, texture="LBP")))
         print("Analyzing QS2")
         find_img_corresp(QS2, GT, DB, k)
 
@@ -137,10 +145,15 @@ class Solution:
     def task6(self, k=10):
         QS = [  # noqa
             hists
-            for hists in tqdm(MultiHistDataset(self.QSD2_W2, masking=True, bbox=True))
+            for hists in tqdm(MultiHistDataset(self.QST1_W3, masking=False, bbox=False, multires=4, method="color", texture="LBP", denoise=False))
         ]
-        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4)))  # noqa
+        #GT = get_pickle("datasets/qsd2_w3/gt_corresps.pkl")
+        DB = list(tqdm(HistDataset(self.DDBB, masking=False, multires=4, method="color", texture="LBP")))  # noqa
         tops = find_multi_img_corresp_keep(QS, DB, k)
+        exit()
+        mapAtK = metrics.mapk(GT, tops, k)
+        print("Map@k is " + str(mapAtK))
+        exit()
         with open("outputs/resutls.pkl", "wb") as f:
             pickle.dump(tops, f)
         print(tops)

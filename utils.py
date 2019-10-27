@@ -143,3 +143,15 @@ def get_pickle(path):
 def dump_pickle(path, data):
     with open(path, "wb") as f:
         pickle.dump(data, f)
+
+def denoise_image(img, method="Gaussian"):
+    if method == "Gaussian":
+        return cv2.GaussianBlur(img, (5, 5), cv2.BORDER_DEFAULT)
+    elif method == "Median":
+        #Median gives best results for qsd1 at least
+        return cv2.medianBlur(img, 3)
+    elif method == "bilateral":
+        return cv2.bilateralFilter(img, 9, 75, 75)
+    elif method == "FastNl":
+        return cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
+
