@@ -172,9 +172,7 @@ def get_gt_text(path):
 def get_hog_histogram(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.resize(img, (256, 256))
-    descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8),
-    im = np.asarray(img)
-                              cells_per_block=(2, 2), transform_sqrt=True, block_norm="L1", feature_vector=False)
+    descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8))
     return descriptors.ravel()
 
 

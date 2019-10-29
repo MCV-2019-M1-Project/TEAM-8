@@ -232,7 +232,7 @@ def getpoints2(im):
     pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
     text = pytesseract.image_to_string(imx)
 
-    mask = np.ones((im.shape[0], im.shape[1]))
+    mask = np.full((im.shape[0], im.shape[1]), 255, dtype="uint8")
     cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
 
     if False:
