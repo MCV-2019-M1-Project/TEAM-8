@@ -13,3 +13,4 @@ testing.ipynb
 
 *.zip
 tesseract-ocr-w64-setup-v5.0.0-alpha.20191010.exe
+*.pkl
