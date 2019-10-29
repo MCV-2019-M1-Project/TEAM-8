@@ -7,30 +7,44 @@ import cv2 as cv
 import fire
 import ml_metrics as metrics
 from tqdm.auto import tqdm
+import glob
+
 import utils
 import text_removal
 
-import glob
-
 # PRE-TASK -3:  Remove Noise.
-# PRE-TASK -2:  Split images. #TODO
-# PRE-TASK -1:  Mask background. #TODO
+# PRE-TASK -2:  TODO Split images.
+# PRE-TASK -1:  TODO Mask background.
 # PRE-TASK 0:   Mask text bounding box.
 
 # TASK 1:       Detect keypoints and compute descriptors.
 #                       Step 1: Detection
 #                               Beto implemented ORB.
+#                               More possible variations:
+#                                       Harris Laplacian
+#                                       Difference of Gaussians (DoG or SIFT)
+#                                       ...
 #                       Step 2: Description
 #                               Beto implemented ORB.
+#                               More possible variations:
+#                                       SIFT
+#                                       SURF
+#                                       HOG
+#                                       ...
 
 # TASK 2:       Find tentative matches based on similarity of local appearance and verify matches.
 #                       Beto implemented brute force matching.
+#                       More possible variations:
+#                               https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_matcher/py_matcher.html
+#                                       FLANN based matching
+#                                       Add Lowe Filter to BF or FLANN
 
-# TASK 3:       Evaluate system on QSD1-W4, map@k. #TODO
+# TASK 3:       TODO Evaluate system on QSD1-W4, map@k.
 
-# TASK 4:       Evaluate best system from W3 on QSD1-W4. #TODO
+# TASK 4:       TODO Evaluate best system from W3 on QSD1-W4.
 
-SHOW_IMGS = True
+
+SHOW_IMGS = False
 
 
 def get_imgs(files_path, extension ="jpg"):
@@ -38,15 +52,18 @@ def get_imgs(files_path, extension ="jpg"):
     return [cv.imread(path) for path in tqdm(paths)]
 
 
+# TODO: Check if best option
 def denoise_imgs(img):
     return cv.medianBlur(img, 3)
 
 
+# TODO
 def split_imgs(img):
     return [img]
 
 
-def get_mask_background(img): # TODO
+# TODO
+def get_mask_background(img):
     mask = np.full((img.shape[0], img.shape[1]), 255, dtype="uint16")
     return mask
 
@@ -81,7 +98,7 @@ def match_descriptions(des1, des2, method="BF"):
         return matches
 
 
-def evaluate_pair(matches):
+def evaluate_matches(matches):
     result = 0
 
     if matches is None:
@@ -94,12 +111,13 @@ def evaluate_pair(matches):
 
 def main():
     # Get images and denoise query set.
-    print("Getting images...")
+    print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w3")
     db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
     # Get mask without background and without text box of query sets.
+    print("\nGetting background and text bounding box masks...")
     qs_bck_masks = [get_mask_background(img) for img in tqdm(qs_denoised)]
     qs_bb_masks = [get_mask_text(img) for img in tqdm(qs_denoised)]
 
@@ -115,55 +133,48 @@ def main():
     qs_masks = [qs_mask.astype("uint8") for qs_mask in qs_masks]
 
     # Detect and describe keypoints in images.
+    print("\nDetecting and describing keypoints...")
     dt_type = cv.ORB_create()
 
-    print("Detecting and describing keypoints...")
-    qs_kps = [detect_keypoints(dt_type, img, mask) for img, mask in tqdm(zip(qs_denoised[0:2], qs_masks[0:2]))]
-    qs_dps = [describe_keypoints(dt_type, img, kp) for img, kp in tqdm(zip(qs_denoised[0:2], qs_kps[0:2]))]
+    qs_kps = [detect_keypoints(dt_type, img, mask) for img, mask in zip(qs_denoised, qs_masks)]
+    qs_dps = [describe_keypoints(dt_type, img, kp) for img, kp in zip(qs_denoised, qs_kps)]
 
     db_kps = [detect_keypoints(dt_type, img) for img in tqdm(db)]
     db_dps = [describe_keypoints(dt_type, img, kp) for img, kp in tqdm(zip(db, db_kps))]
 
     # Match images
-    print("Matching images...")
-
-    matches = [match_descriptions(qs_dps[0], db_dp) for db_dp in tqdm(db_dps)]
-    matches_ev = [evaluate_pair(match) for match in matches]
+    print("\nMatching images...")
 
     class Match:
-        def __init__(self, strength, idx):
-            self.strength = strength
+        def __init__(self, summed_dist, idx):
+            self.summed_dist = summed_dist
             self.idx = idx
 
-    matches_pck = [Match(strength, idx) for strength, idx in zip(matches_ev, range(len(matches_ev)))]
-    matches_pck = sorted(matches_pck, key=lambda x: x.strength)
+    tops = []
 
-    print([match_pck.idx for match_pck in matches_pck])
-    print([match_pck.strength for match_pck in matches_pck])
+    # For all query images
+    for qs_dp in tqdm(qs_dps):
+        # Get all descriptor matches between a query image and all database images.
+        matches_s = [match_descriptions(qs_dp, db_dp) for db_dp in db_dps]
+        # Evaluate quality of matches
+        matches_s_ev = [evaluate_matches(match) for match in matches_s]
+        # Sort for lowest
+        matches_s_cl = [Match(summed_dist, idx) for summed_dist, idx in zip(matches_s_ev, range(len(matches_s_ev)))]
+        matches_s_cl = sorted(matches_s_cl, key=lambda x: x.summed_dist)
+        tops.append([matches.idx for matches in matches_s_cl[0:10]])
 
-
-
-
-    matches = [match_descriptions(qs_dps[1], db_dp) for db_dp in tqdm(db_dps)]
-    matches_ev = [evaluate_pair(match) for match in matches]
-
-    matches_pck = [Match(strength, idx) for strength, idx in zip(matches_ev, range(len(matches_ev)))]
-    matches_pck = sorted(matches_pck, key=lambda x: x.strength)
-
-    print([match_pck.idx for match_pck in matches_pck])
-    print([match_pck.strength for match_pck in matches_pck])
-    print([pair.distance for pair in matches[1]])
-
+    gt = utils.get_pickle("datasets/qsd1_w3/gt_corresps.pkl")
+    k = 10
+    mapAtK = metrics.mapk(gt, tops, 10)
+    print("Map@" + str(k) + "is" + str(mapAtK))
 
     if SHOW_IMGS:
         img_matches = 0
-        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_pck[1].idx], db_kps[matches_pck[1].idx], matches[1], img_matches)
+        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
         cv.imshow("a", qs_denoised[0])
         cv.imshow("b", qs_denoised[1])
         cv.imshow("matches", img_matches)
         cv.waitKey()
-
-    print("END")
 
 
 main()
