@@ -1,6 +1,3 @@
-"""
-Example usage: python run.py task2
-"""
 import pickle
 import numpy as np
 import cv2 as cv
@@ -27,6 +24,7 @@ import text_removal
 #                       Step 2: Description
 #                               Beto implemented ORB.
 #                               More possible variations:
+#                                       Compare additionally with read text
 #                                       SIFT
 #                                       SURF
 #                                       HOG
@@ -68,8 +66,8 @@ def get_mask_background(img):
     return mask
 
 
-def get_mask_text(img):
-    return text_removal.getpoints2(img).mask
+def get_text_bb_info(img):
+    return text_removal.getpoints2(img)
 
 
 def detect_keypoints(detection_type, img, mask=None):
@@ -109,6 +107,23 @@ def evaluate_matches(matches):
     return result / len(matches)
 
 
+def comparing_with_ground_truth(tops, txt_infos):
+    k = 10
+    gt = utils.get_pickle("datasets/qsd1_w3/gt_corresps.pkl")
+    mapAtK = metrics.mapk(gt, tops, k)
+    print("\nMap@" + str(k) + "is" + str(mapAtK))
+
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w3/text_boxes.pkl")).squeeze()
+    bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
+    mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
+    print("Mean Intersection over Union: ", mean_iou)
+
+    texts_gt = utils.get_gt_text("datasets/qsd1_w3")
+    texts_predicted = [txt_info.text for txt_info in txt_infos]
+    mean_lev = utils.compute_lev(texts_gt, texts_predicted)
+    print("Mean Levenshtein distance: ", mean_lev)
+
+
 def main():
     # Get images and denoise query set.
     print("Getting and denoising images...")
@@ -116,15 +131,16 @@ def main():
     db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
-    # Get mask without background and without text box of query sets.
+    # Get masks without background and without text box of query sets.
     print("\nGetting background and text bounding box masks...")
     qs_bck_masks = [get_mask_background(img) for img in tqdm(qs_denoised)]
-    qs_bb_masks = [get_mask_text(img) for img in tqdm(qs_denoised)]
+    qs_txt_infos = [get_text_bb_info(img) for img in tqdm(qs_denoised)]
+    qs_txt_masks = [qs_txt_info.mask for qs_txt_info in qs_txt_infos]
 
     # Merge masks into a single mask
     qs_masks = [
-        bck_mask.astype("uint16") + bb_mask.astype("uint16")
-        for bck_mask, bb_mask in zip(qs_bck_masks, qs_bb_masks)]
+        bck_mask.astype("uint16") + txt_mask.astype("uint16")
+        for bck_mask, txt_mask in zip(qs_bck_masks, qs_txt_masks)]
 
     for qs_mask in qs_masks:
         qs_mask[qs_mask <= 255] = 0
@@ -163,10 +179,7 @@ def main():
         matches_s_cl = sorted(matches_s_cl, key=lambda x: x.summed_dist)
         tops.append([matches.idx for matches in matches_s_cl[0:10]])
 
-    gt = utils.get_pickle("datasets/qsd1_w3/gt_corresps.pkl")
-    k = 10
-    mapAtK = metrics.mapk(gt, tops, 10)
-    print("Map@" + str(k) + "is" + str(mapAtK))
+    comparing_with_ground_truth(tops, qs_txt_infos)
 
     if SHOW_IMGS:
         img_matches = 0
