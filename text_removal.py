@@ -235,7 +235,7 @@ def getpoints2(im, file_name):
         f.write(text)
 
 
-    mask = np.ones((im.shape[0], im.shape[1]))
+    mask = np.full((im.shape[0], im.shape[1]), 255, dtype="uint8")
     cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
 
     if False:
