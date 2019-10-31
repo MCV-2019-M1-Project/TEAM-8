@@ -229,7 +229,8 @@ def getpoints2(im):
     )
 
     imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
-    pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
+    #TODO: Find a way to use this without custom path.
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     text = pytesseract.image_to_string(imx)
 
     mask = np.full((im.shape[0], im.shape[1]), 255, dtype="uint8")
