@@ -40,7 +40,7 @@ import text_removal
 # TASK 4:       TODO Evaluate best system from W3 on QSD1-W4.
 
 
-SHOW_IMGS = False
+SHOW_IMGS = True
 
 
 def get_imgs(files_path, extension ="jpg"):
@@ -132,7 +132,7 @@ def comparing_with_ground_truth(tops, txt_infos):
     k = 10
     gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
     mapAtK = metrics.mapk(gt, tops, k)
-    print("\nMap@" + str(k) + "is" + str(mapAtK))
+    print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
     bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
     bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
@@ -142,6 +142,9 @@ def comparing_with_ground_truth(tops, txt_infos):
     texts_gt = utils.get_gt_text("datasets/qsd1_w4")
     texts_predicted = [txt_info.text for txt_info in txt_infos]
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
+    print(texts_predicted)
+    print("\n")
+    print(texts_gt)
     print("Mean Levenshtein distance: ", mean_lev)
 
 
@@ -205,9 +208,10 @@ def main():
     if SHOW_IMGS:
         img_matches = 0
         img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-        cv.imshow("a", qs_denoised[0])
-        cv.imshow("b", qs_denoised[1])
-        cv.imshow("matches", img_matches)
+        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # cv.imshow("a", qs_denoised[0])
+        # cv.imshow("b", qs_denoised[1])
+        cv.imshow("matches", rezised)
         cv.waitKey()
 
 

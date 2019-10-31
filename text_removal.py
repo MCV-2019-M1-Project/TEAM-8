@@ -232,9 +232,9 @@ def getpoints2(im):
     mask = np.full((im.shape[0], im.shape[1]), 255, dtype="uint8")
     cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
 
-    if False:
-        cv2.imshow("Drawing", utils.resize(drawing, 50))
-        cv2.imshow("Sobel x", utils.resize(sobel_x_mod, 50))
+    if True:
+        cv2.imshow("Drawing", utils.resize(drawing, 70))
+        cv2.imshow("Sobel x", utils.resize(sobel_x_mod, 70))
         cv2.waitKey(0)
 
     class Result:
