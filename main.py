@@ -130,16 +130,16 @@ def evaluate_matches(matches):
 
 def comparing_with_ground_truth(tops, txt_infos):
     k = 10
-    gt = utils.get_pickle("datasets/qsd1_w3/gt_corresps.pkl")
+    gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
     mapAtK = metrics.mapk(gt, tops, k)
     print("\nMap@" + str(k) + "is" + str(mapAtK))
 
-    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w3/text_boxes.pkl")).squeeze()
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
     bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
-    texts_gt = utils.get_gt_text("datasets/qsd1_w3")
+    texts_gt = utils.get_gt_text("datasets/qsd1_w4")
     texts_predicted = [txt_info.text for txt_info in txt_infos]
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print("Mean Levenshtein distance: ", mean_lev)
@@ -148,7 +148,7 @@ def comparing_with_ground_truth(tops, txt_infos):
 def main():
     # Get images and denoise query set.
     print("Getting and denoising images...")
-    qs = get_imgs("datasets/qsd1_w3")
+    qs = get_imgs("datasets/qsd1_w4")
     db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
