@@ -31,11 +31,8 @@ import text_removal
 #                                       ...
 
 # TASK 2:       Find tentative matches based on similarity of local appearance and verify matches.
-#                       Beto implemented brute force matching.
-#                       More possible variations:
-#                               https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_matcher/py_matcher.html
-#                                       FLANN based matching
-#                                       Add Lowe Filter to BF or FLANN
+#                       Beto implemented brute force based matching.
+#                       Beto implemented flann based matching.
 
 # TASK 3:       TODO Evaluate system on QSD1-W4, map@k.
 
@@ -80,28 +77,50 @@ def describe_keypoints(description_type, img, kp):
     return des
 
 
-def match_descriptions(des1, des2, method="BF"):
-    if des1 is None:
+def match_descriptions(des1, des2, method="BRUTE_FORCE", lowe_filter=False):
+    if des1 is None or des2 is None:
         return
 
-    if des2 is None:
-        return
+    matches = []
 
-    if method == "BF":
-        bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
-        matches = bf.match(des1, des2)
-        # Sort matches in the order of their distance.
-        matches = sorted(matches, key=lambda x: x.distance)
-        matches = matches[0: min(10, len(matches))]
-        return matches
+    if method == "BRUTE_FORCE":
+        if lowe_filter:
+            bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=False)
+            matches_unfiltered = bf.knnMatch(des1, des2, k=2)
+        else:
+            bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+            matches = bf.match(des1, des2)
+
+    elif method == "FLANN":
+        FLANN_INDEX_LSH = 6
+        index_params = dict(algorithm=FLANN_INDEX_LSH,
+                            table_number=6,  # 12
+                            key_size=12,  # 20
+                            multi_probe_level=1)  # 2
+        search_params = dict(checks=100)
+
+        flann = cv.FlannBasedMatcher(index_params, search_params)
+        matches_unfiltered = flann.knnMatch(des1, des2, k=2)
+        lowe_filter = True
+
+    if lowe_filter:
+        for i, pair in enumerate(matches_unfiltered):
+            if len(pair) < 2:
+                continue
+            m, n = pair
+            if m.distance < 0.7 * n.distance:
+                matches.append(m)
+
+    matches = sorted(matches, key=lambda x: x.distance)
+    matches = matches[0: min(len(matches), 10)]
+    return matches
 
 
 def evaluate_matches(matches):
-    result = 0
-
-    if matches is None:
+    if matches is None or len(matches) == 0:
         return 999999
 
+    result = 0
     for match in matches:
         result += match.distance
     return result / len(matches)

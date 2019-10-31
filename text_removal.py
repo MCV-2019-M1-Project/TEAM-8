@@ -31,7 +31,7 @@ def getpoints2(im, mask):
 def getpoints2(im):
     # ___GET SMALL BOUNDING BOX WITH NO FALSE POSITIVES___
 
-    grad_neighb_divider = 2
+    grad_neighb_divider = 1000
     sobel_x_thresh = 25
 
     blur = cv2.GaussianBlur(im, (15, 15), 0)
@@ -51,8 +51,8 @@ def getpoints2(im):
     sobel_x_mod = sobel_x_mod.astype("uint8")
     sobel_x_mod[sobel_x_mod < sobel_x_thresh] = 0
 
-    start_x = round(13 * im.shape[1] / 32)
-    end_x = round(19 * im.shape[1] / 32)
+    start_x = round(3 * im.shape[1] / 8)
+    end_x = round(5 * im.shape[1] / 8)
 
     min_y = 0
     min_value = 99999999999999
@@ -89,22 +89,18 @@ def getpoints2(im):
             grad_devia += abs(mean_b - blur[j_m, x])
 
         for x in range(start_x, end_x):
-            grad_x_neighb += sobel_x_mod[j_m + 1, x]
-            grad_x_neighb += sobel_x_mod[j_m + 2, x]
-            grad_x_neighb += sobel_x_mod[j_m + 3, x]
-            grad_x_neighb += sobel_x_mod[j_m + 4, x]
-            grad_x_neighb += sobel_x_mod[j_m + 5, x]
-            grad_x_neighb += sobel_x_mod[j_m + 6, x]
-            grad_x_neighb += sobel_x_mod[j_m + 7, x]
+            grad_x_neighb += sobel_x_mod[j_m - 1, x]
+            grad_x_neighb += sobel_x_mod[j_m - 2, x]
+            grad_x_neighb += sobel_x_mod[j_m - 3, x]
 
         grad_x_neighb = 0.001 if grad_x_neighb == 0 else grad_x_neighb / grad_neighb_divider
-        new_value = sum(grad_devia) - grad_x_neighb
+        new_value = sum(grad_devia) / grad_x_neighb
 
         if new_value < min_value:
             min_value = new_value
             min_y = j_m
 
-    boundingxy_initial = [start_x, min_y, end_x, min_y + 10]
+    boundingxy_initial = [start_x, min_y - 10, end_x, min_y]
     boundingxy = np.copy(boundingxy_initial)
 
     # ___EXPAND BOUNDING BOX TO GET LESS FALSE NEGATIVES___
@@ -145,7 +141,7 @@ def getpoints2(im):
                             if v > maxkernel:
                                 maxkernel = v
 
-    ksize = maxkernel + 12
+    ksize = maxkernel + 10
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
 
     if diffmin < diffmax:
