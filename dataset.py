@@ -134,9 +134,10 @@ class Splitter:
 
 
 class BBox:
-    def get_bbox(self, img):
+    def get_bbox(self, img, iter):
         base_mask = np.ones_like(img[:, :, 0])
-        result = text_removal.getpoints2(img)
+        result = text_removal.getpoints2(img, iter)
+
         bbox_coords = result.boundingxy
         base_mask[bbox_coords[1] : bbox_coords[3], bbox_coords[0] : bbox_coords[2]] = 0
         return np.uint8(base_mask) * 255
@@ -174,7 +175,7 @@ class Dataset:
 
     def get_masks(self, idx):
         img = Dataset.__getitem__(self, idx)
-        bbox = BBox().get_bbox(img)
+        bbox = BBox().get_bbox(img, idx)
         for mask in Splitter(img):
             res = mask + bbox
             res[res != 0] = 255

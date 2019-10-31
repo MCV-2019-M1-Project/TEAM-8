@@ -28,7 +28,7 @@ def getpoints2(im, mask):
     return getpoints2(im_masked)
 
 
-def getpoints2(im):
+def getpoints2(im, file_name):
     # ___GET SMALL BOUNDING BOX WITH NO FALSE POSITIVES___
 
     grad_neighb_divider = 2
@@ -231,6 +231,9 @@ def getpoints2(im):
     imx = np.copy(gray[boundingxy[1]:boundingxy[3], boundingxy[0]:boundingxy[2]])
     pytesseract.pytesseract.tesseract_cmd = r'D:\Program Files\Tesseract-OCR\tesseract.exe'
     text = pytesseract.image_to_string(imx)
+    with open("outputs/text/" + f"{file_name:05d}" + ".txt", "w") as f:
+        f.write(text)
+
 
     mask = np.ones((im.shape[0], im.shape[1]))
     cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
