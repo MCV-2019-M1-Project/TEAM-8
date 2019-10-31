@@ -25,16 +25,17 @@ import text_removal
 #                               Beto implemented ORB.
 #                               More possible variations:
 #                                       Compare additionally with read text
-#                                       SIFT
-#                                       SURF
+#                                       SIFT (PATENTED, requires an older version of openCV)
+#                                       SURF (PATENTED, requires an older version of openCV)
 #                                       HOG
 #                                       ...
 
 # TASK 2:       Find tentative matches based on similarity of local appearance and verify matches.
 #                       Beto implemented brute force based matching.
 #                       Beto implemented flann based matching.
+#               TODO Changing tops list to [-1] if image is not present in dataset
 
-# TASK 3:       TODO Evaluate system on QSD1-W4, map@k.
+# TASK 3:       Evaluate system on QSD1-W4, map@k.
 
 # TASK 4:       TODO Evaluate best system from W3 on QSD1-W4.
 
@@ -82,6 +83,7 @@ def match_descriptions(des1, des2, method="BRUTE_FORCE", lowe_filter=False):
         return
 
     matches = []
+    matches_unfiltered =[]
 
     if method == "BRUTE_FORCE":
         if lowe_filter:
