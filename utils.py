@@ -165,7 +165,8 @@ def get_gt_text(path):
     paths = sorted(glob.glob(f"{path}/*.txt"))
     result = []
     for path in paths:
-        result.append(open(path, "r").read().split("'")[1])
+        result.append(open(path, "r").read())
+        # result.append(open(path, "r").read().split("'")[1])
     return result
 
 
