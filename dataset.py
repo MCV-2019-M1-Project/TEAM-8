@@ -123,14 +123,14 @@ class Splitter:
     def __iter__(self):
         x = self.x
         if x is None:
-            yield self.single_mask
+            yield x, self.single_mask
         else:
             left = np.zeros_like(self.img[:, :, 0])
             left[:, :x] += Mask(self.img[:, :x]).get_mask_single()
-            yield left
+            yield x, left
             right = np.zeros_like(self.img[:, :, 0])
             right[:, x:] += Mask(self.img[:, x:]).get_mask_single()
-            yield right
+            yield x, right
 
 
 class BBox:
@@ -175,11 +175,30 @@ class Dataset:
 
     def get_masks(self, idx):
         img = Dataset.__getitem__(self, idx)
-        bbox = BBox().get_bbox(img, idx)
-        for mask in Splitter(img):
-            res = mask + bbox
-            res[res != 0] = 255
-            yield res
+        num_mask = 0
+        for x, mask in Splitter(img):
+            if x is not None:
+                if num_mask == 0:
+                    bbox = BBox().get_bbox(img[:, :x], idx)
+                    mask = mask[:, :x]
+                    cropped = img[:, :x]
+                    res = mask + bbox
+                    res[res != 0] = 255
+                    yield cropped, res
+                if num_mask == 1:
+                    bbox = BBox().get_bbox(img[:, x:], idx)
+                    mask = mask[:, x:]
+                    cropped = img[:, x:]
+                    res = mask + bbox
+                    res[res != 0] = 255
+                    yield cropped, res
+            else:
+                bbox = BBox().get_bbox(img[:, :], idx)
+                mask = mask[:, :]
+                res = mask + bbox
+                res[res != 0] = 255
+                yield img, res
+            num_mask += 1
 
 
 class HistDataset(Dataset):
@@ -352,7 +371,7 @@ class MultiHistDataset(HistDataset):
 
     def calc_hist(self, idx):
         img = Dataset.__getitem__(self, idx)
-        return [self._calc_hist(img, mask) for mask in self.get_masks(idx)]
+        return [self._calc_hist(cropped_img, mask) for cropped_img, mask in self.get_masks(idx)]
 
 
 class MaskDataset:
