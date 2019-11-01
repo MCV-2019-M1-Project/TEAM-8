@@ -8,6 +8,7 @@ import glob
 
 import utils
 import text_removal
+import background_remover
 
 # PRE-TASK -3:  Remove Noise.
 # PRE-TASK -2:  TODO Split images.
@@ -149,6 +150,12 @@ def comparing_with_ground_truth(tops, txt_infos):
 
 
 def main():
+    qs = get_imgs("datasets/qsd1_w4")
+    for img in tqdm(qs):
+        imgs = background_remover.remove_background(img)
+        for im in imgs:
+            cv.imshow("Full", cv.resize(im, (256, 256)))
+        cv.waitKey()
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
