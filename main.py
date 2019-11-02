@@ -64,8 +64,8 @@ def get_mask_background(img):
     img=np.asarray(img)
     mask=[]
     if len(img) is 2:
-        mask[0] = np.full((img[0].shape[0], img[0].shape[1]), 255, dtype="uint16")
-        mask[1] = np.full((img[1].shape[0], img[1].shape[1]), 255, dtype="uint16")
+        mask.append(np.full((img[0].shape[0], img[0].shape[1]), 255, dtype="uint16"))
+        mask.append(np.full((img[1].shape[0], img[1].shape[1]), 255, dtype="uint16"))
     else :
         mask = np.full((img.shape[0], img.shape[1]), 255, dtype="uint16")
     return mask
