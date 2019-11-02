@@ -207,12 +207,16 @@ def main():
 
     if SHOW_IMGS:
         img_matches = 0
-        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
-        # cv.imshow("a", qs_denoised[0])
-        # cv.imshow("b", qs_denoised[1])
-        cv.imshow("matches", rezised)
-        cv.waitKey()
+        # img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
+        # rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # # cv.imshow("a", qs_denoised[0])
+        # # cv.imshow("b", qs_denoised[1])
+        # cv.imshow("matches", rezised)
+        # cv.waitKey()
+        print(qs_txt_infos[1].drawing)
+        for im in range(30):
+            print(im)
+            cv.imwrite("outputs/" + str(im) + ".png", qs_txt_infos[im].drawing)
 
 
 main()

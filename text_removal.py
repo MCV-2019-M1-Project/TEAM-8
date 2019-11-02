@@ -20,12 +20,12 @@ class text_remover(dataset.Dataset):
         return super().__getitem__(idx)
 
 
-def getpoints2(im, mask):
-    mask_idxs = np.where(mask == 1)
-    xs = mask_idxs[0]
-    ys = mask_idxs[1]
-    im_masked = im[min(xs):max(xs), min(ys):max(ys)]
-    return getpoints2(im_masked)
+# def getpoints2(im, mask):
+#     mask_idxs = np.where(mask == 1)
+#     xs = mask_idxs[0]
+#     ys = mask_idxs[1]
+#     im_masked = im[min(xs):max(xs), min(ys):max(ys)]
+#     return getpoints2(im_masked)
 
 
 def getpoints2(im):
@@ -232,11 +232,11 @@ def getpoints2(im):
     mask = np.full((im.shape[0], im.shape[1]), 255, dtype="uint8")
     cv2.rectangle(mask, (boundingxy[0], boundingxy[1]), (boundingxy[2], boundingxy[3]), 0, -1)
 
-    if True:
-        cv2.imshow("Drawing", utils.resize(drawing, 70))
-        cv2.imshow("Sobel x", utils.resize(sobel_x_mod, 70))
-        cv2.waitKey(0)
-
+    if False:
+         cv2.imshow("Drawing", utils.resize(drawing, 70))
+        # # cv2.imshow("Sobel x", utils.resize(sobel_x_mod, 70))
+        # cv2.waitKey(0)
+        # cv2.imwrite("outputs/" + str(im) + ".png", drawing)
     class Result:
         def __init__(self, boundingxy, drawing, text, mask):
             self.boundingxy = boundingxy
