@@ -153,14 +153,14 @@ def main():
     qs = get_imgs("datasets/qsd1_w4")
     for img in tqdm(qs):
         imgs = background_remover.remove_background(img)
-        for im in imgs:
-            cv.imshow("Full", cv.resize(im, (256, 256)))
-        cv.waitKey()
+        # for im in imgs:
+        #     cv.imshow("Full", cv.resize(im, (256, 256)))
+        # cv.waitKey()
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
     db = get_imgs("datasets/DDBB")
-    qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
+    qs_denoised = [denoise_imgs(img) for img in tqdm(imgs)]
 
     # Get masks without background and without text box of query sets.
     print("\nGetting background and text bounding box masks...")
@@ -215,11 +215,11 @@ def main():
     if SHOW_IMGS:
         img_matches = 0
         img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
         # cv.imshow("a", qs_denoised[0])
         # cv.imshow("b", qs_denoised[1])
-        cv.imshow("matches", rezised)
-        cv.waitKey()
+        # cv.imshow("matches", rezised)
+        # cv.waitKey()
 
 
 main()
