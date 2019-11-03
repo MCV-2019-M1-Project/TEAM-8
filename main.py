@@ -131,18 +131,22 @@ def evaluate_matches(matches):
 
 def comparing_with_ground_truth(tops, txt_infos, k):
     utils.dump_pickle("result.pkl", tops)
-    gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
+    gt = utils.get_pickle("datasets/qst1_w4/gt_corresps.pkl")
     hypo = utils.get_pickle("result.pkl")
     mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
-    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qst1_w4/text_boxes.pkl")).squeeze()
     bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
-    texts_gt = utils.get_gt_text("datasets/qsd1_w4")
+    texts_gt = utils.get_gt_text("datasets/qst1_w4")
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
+    # np.savetxt('result.txt',np.asarray(texts_predicted))
+    with open('results.txt', 'w') as f:
+        for item in texts_predicted:
+            f.write("%s\n" % item)
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print(texts_predicted)
     print("\n")
@@ -152,10 +156,10 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 
 def main():
     #K parameter for map@k
-    k = 10
+    k = 3
     # Get images and denoise query set.
     print("Getting and denoising images...")
-    qs = get_imgs("datasets/qsd1_w4")
+    qs = get_imgs("datasets/qst1_w4")
     db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
@@ -216,10 +220,10 @@ def main():
             p2_tops = [matches.idx for matches in p2[0:k]]
             p2_dists = [matches.summed_dist for matches in p2[0:k]]
             merged_tops = []
-            if p1_dists[0] > 35:
+            if p1_dists[0] > 25:
                 p2_tops.insert(0, -1)
                 merged_tops = p2_tops
-            elif p2_dists[0] > 35:
+            elif p2_dists[0] > 25:
                 p1_tops.insert(1, -1)
                 merged_tops = p1_tops
             else:
@@ -233,7 +237,7 @@ def main():
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             p1_tops = [matches.idx for matches in p1[0:k]]
             p1_dists = [matches.summed_dist for matches in p1[0:k]]
-            if p1_dists[0] > 35:
+            if p1_dists[0] > 25:
                 p1_tops = [-1]
             tops.append(p1_tops)
             dists.append(p1_dists)
@@ -243,7 +247,7 @@ def main():
 
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
-
+    print(type(db))
     # if SHOW_IMGS:
     #     img_matches = 0
     #     img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
