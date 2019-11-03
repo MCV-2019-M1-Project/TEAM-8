@@ -61,29 +61,20 @@ def split_imgs(img):
 
 # TODO
 def get_mask_background(img):
-    img=np.asarray(img)
-    mask=[]
-    if len(img) is 2:
-        mask.append(np.full((img[0].shape[0], img[0].shape[1]), 255, dtype="uint16"))
-        mask.append(np.full((img[1].shape[0], img[1].shape[1]), 255, dtype="uint16"))
-    else :
-        mask = np.full((img.shape[0], img.shape[1]), 255, dtype="uint16")
+    mask = np.full((img.shape[0], img.shape[1]), 255, dtype="uint16")
     return mask
 
 
 def get_text_bb_info(img):
-    img = np.asarray(img)
     return text_removal.getpoints2(img)
 
 
 def detect_keypoints(detection_type, img, mask=None):
-    img = np.asarray(img)
     kp = detection_type.detect(img, mask)
     return kp
 
 
 def describe_keypoints(description_type, img, kp):
-    img = np.asarray(img)
     kp, des = description_type.compute(img, kp)
     return des
 
@@ -159,47 +150,35 @@ def comparing_with_ground_truth(tops, txt_infos):
 
 
 def main():
-    qs = get_imgs("datasets/qsd1_w4")
-
-    # for img in bg_images:
-    #     if len(img) is 2:
-    #         print("ok")
-    #
-    # print(bg_images_np)
-        # for im in imgs:
-        #     bg_images.append(np.asarray(im))
-    #     cv.imshow("Full", cv.resize(im, (256, 256)))
-    #     cv.imwrite("outputs/" + str(im) + ".jpg", im)
-        # cv.waitKey()
     # Get images and denoise query set.
-    print("\nGetting and denoising images...")
+    print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
     db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
-    bg_images = [background_remover.remove_background(img) for img in tqdm(qs_denoised)]
+
+    #Separating paitings inside images to separate images
+    qs_split = [background_remover.remove_background(img) for img in qs_denoised]
     # Get masks without background and without text box of query sets.
-    print("\nGetting background and text bounding box masks...")
-    qs_bck_masks = [get_mask_background(img) for img in tqdm(bg_images)]
-    qs_txt_infos = [get_text_bb_info(img) for img in tqdm(bg_images)]
-    qs_txt_masks = [qs_txt_info.mask for qs_txt_info in qs_txt_infos]
+    print("\nGetting text bounding box masks...")
+    #Not needed since the above function already crops the background
+    #qs_bck_masks = [get_mask_background(img) for img in tqdm(qs_denoised)]
+    qs_txt_infos = [[get_text_bb_info(painting) for painting in img] for img in tqdm(qs_split)]
+    qs_txt_masks = [[single.mask for single in qs_txt_info] for qs_txt_info in qs_txt_infos]
 
-    # Merge masks into a single mask
-    qs_masks = [
-        bck_mask.astype("uint16") + txt_mask.astype("uint16")
-        for bck_mask, txt_mask in zip(qs_bck_masks, qs_txt_masks)]
+    for qs_mask in qs_txt_masks:
+        for single_mask in qs_mask:
+            single_mask[single_mask < 255] = 0
+            single_mask[single_mask > 255] = 255
 
-    for qs_mask in qs_masks:
-        qs_mask[qs_mask <= 255] = 0
-        qs_mask[qs_mask > 255] = 255
-
-    qs_masks = [qs_mask.astype("uint8") for qs_mask in qs_masks]
+    qs_masks = [[single_mask.astype("uint8") for single_mask in qs_mask] for qs_mask in qs_txt_masks]
 
     # Detect and describe keypoints in images.
     print("\nDetecting and describing keypoints...")
     dt_type = cv.ORB_create()
-
-    qs_kps = [detect_keypoints(dt_type, img, mask) for img, mask in zip(bg_images, qs_masks)]
-    qs_dps = [describe_keypoints(dt_type, img, kp) for img, kp in zip(bg_images, qs_kps)]
+    qs_kps = [[detect_keypoints(dt_type, painting, painting_mask) for painting, painting_mask in zip(img, mask)]
+              for img, mask in zip(qs_split, qs_masks)]
+    qs_dps = [[describe_keypoints(dt_type, painting, painting_kp) for painting, painting_kp in zip(img, kp)]
+              for img, kp in zip(qs_split, qs_kps)]
 
     db_kps = [detect_keypoints(dt_type, img) for img in tqdm(db)]
     db_dps = [describe_keypoints(dt_type, img, kp) for img, kp in tqdm(zip(db, db_kps))]
@@ -213,31 +192,39 @@ def main():
             self.idx = idx
 
     tops = []
+    dists = []
 
     # For all query images
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
-        matches_s = [match_descriptions(qs_dp, db_dp) for db_dp in db_dps]
+        matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
         # Evaluate quality of matches
-        matches_s_ev = [evaluate_matches(match) for match in matches_s]
+        matches_s_ev = [[evaluate_matches(painting_match) for painting_match in match] for match in matches_s]
         # Sort for lowest
-        matches_s_cl = [Match(summed_dist, idx) for summed_dist, idx in zip(matches_s_ev, range(len(matches_s_ev)))]
-        matches_s_cl = sorted(matches_s_cl, key=lambda x: x.summed_dist)
-        tops.append([matches.idx for matches in matches_s_cl[0:10]])
+        matches_s_cl = [[Match(painting_summed_dist, idx) for painting_summed_dist in summed_dist] for idx, summed_dist in enumerate(matches_s_ev)]
+        if len(qs_dp) > 1:
+            p1 = [match[0] for match in matches_s_cl]
+            p2 = [match[1] for match in matches_s_cl]
+            p1 = sorted(p1, key=lambda x: x.summed_dist)
+            p2 = sorted(p2, key=lambda x: x.summed_dist)
+            sorted_list = [p1, p2]
+        else:
+            p1 = [match[0] for match in matches_s_cl]
+            p1 = sorted(p1, key=lambda x: x.summed_dist)
+            sorted_list = [p1]
+        tops.append([[matches.idx for matches in painting[0:10]] for painting in sorted_list])
+        dists.append([[matches.summed_dist for matches in painting[0:10]] for painting in sorted_list])
 
     comparing_with_ground_truth(tops, qs_txt_infos)
 
-    # if SHOW_IMGS:
-    #     # img_matches = 0
-    #     # img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-    #     # rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
-    #     # cv.imshow("a", qs_denoised[0])
-    #     # cv.imshow("b", qs_denoised[1])
-    #     # cv.imshow("matches", rezised)
-    #     # cv.waitKey()
-    #
-    #     for im in bg_images:
-    #         print(im)
-    #         cv.imwrite("outputs/" + str(im) + ".bmp", cv.resize(im, (256, 256)))
+    if SHOW_IMGS:
+        img_matches = 0
+        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
+        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # cv.imshow("a", qs_denoised[0])
+        # cv.imshow("b", qs_denoised[1])
+        cv.imshow("matches", rezised)
+        cv.waitKey()
+
 
 main()
