@@ -142,12 +142,12 @@ def comparing_with_ground_truth(tops, txt_infos, k):
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
     bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
-    # bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
+    bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
     texts_gt = utils.get_gt_text("datasets/qsd1_w4")
-    texts_predicted = [txt_info.text for txt_info in txt_infos]
+    texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print(texts_predicted)
     print("\n")
@@ -232,14 +232,14 @@ def main():
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
 
-    if SHOW_IMGS:
-        img_matches = 0
-        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
-        # cv.imshow("a", qs_denoised[0])
-        # cv.imshow("b", qs_denoised[1])
-        cv.imshow("matches", rezised)
-        cv.waitKey()
+    # if SHOW_IMGS:
+        # img_matches = 0
+        # img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
+        # rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # # cv.imshow("a", qs_denoised[0])
+        # # cv.imshow("b", qs_denoised[1])
+        # cv.imshow("matches", rezised)
+        # cv.waitKey()
 
 
 main()
