@@ -192,3 +192,17 @@ def denoise_image(img, method="Gaussian"):
     elif method == "FastNl":
         return cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
 
+def get_hog_histogram(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img, (256, 256))
+    descriptors = feature.hog(img, orientations=9, pixels_per_cell=(8, 8))
+    return descriptors.ravel()
+
+
+def get_hog_histograms(imgs):
+    hogs_imgs = [get_hog_histogram(imgs[x]) for x in tqdm(range(len(imgs)))]
+    return hogs_imgs
+
+def list_argsort(seq):
+    # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
+    return sorted(range(len(seq)), key=seq.__getitem__)
