@@ -133,31 +133,26 @@ def comparing_with_ground_truth(tops, txt_infos, k):
     utils.dump_pickle("result.pkl", tops)
     gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
     hypo = utils.get_pickle("result.pkl")
-    for i in range(len(hypo)):
-        if len(hypo[i]) is 2 :
-            hypo[i]=[hypo[i][0][0],hypo[i][1][0]]
-        else :
-            hypo[i]=hypo[i][0]
     mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
     bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
     bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
-    mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
-    print("Mean Intersection over Union: ", mean_iou)
+    #mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
+    #print("Mean Intersection over Union: ", mean_iou)
 
     texts_gt = utils.get_gt_text("datasets/qsd1_w4")
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
-    mean_lev = utils.compute_lev(texts_gt, texts_predicted)
+    #mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print(texts_predicted)
     print("\n")
     print(texts_gt)
-    print("Mean Levenshtein distance: ", mean_lev)
+    #print("Mean Levenshtein distance: ", mean_lev)
 
 
 def main():
     #K parameter for map@k
-    k = 1
+    k = 10
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
@@ -216,30 +211,47 @@ def main():
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             p2 = sorted(p2, key=lambda x: x.summed_dist)
             sorted_list = [p1, p2]
+            p1_tops = [matches.idx for matches in p1[0:k]]
+            p1_dists = [matches.summed_dist for matches in p1[0:k]]
+            p2_tops = [matches.idx for matches in p2[0:k]]
+            p2_dists = [matches.summed_dist for matches in p2[0:k]]
+            merged_tops = []
+            if p1_dists[0] > 35:
+                p2_tops.insert(0, -1)
+                merged_tops = p2_tops
+            elif p2_dists[0] > 35:
+                p1_tops.insert(1, -1)
+                merged_tops = p1_tops
+            else:
+                for first_top, second_top in zip(p1_tops, p2_tops):
+                    merged_tops.append(first_top)
+                    merged_tops.append(second_top)
+            tops.append(merged_tops)
+            dists.append([p1_dists, p2_dists])
         else:
             p1 = [match[0] for match in matches_s_cl]
             p1 = sorted(p1, key=lambda x: x.summed_dist)
-            sorted_list = [p1]
-        tops.append([[matches.idx for matches in painting[0:k]] for painting in sorted_list])
-        dists.append([[matches.summed_dist for matches in painting[0:k]] for painting in sorted_list])
+            p1_tops = [matches.idx for matches in p1[0:k]]
+            p1_dists = [matches.summed_dist for matches in p1[0:k]]
+            if p1_dists[0] > 35:
+                p1_tops = [-1]
+            tops.append(p1_tops)
+            dists.append(p1_dists)
+
 
     #Removing results with too big of a distance
-    for i, im in enumerate(tops):
-        for j, painting in enumerate(im):
-            #Distance threshold
-            if dists[i][j][0] > 35:
-                tops[i][j] = [-1]
+
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
 
-    # if SHOW_IMGS:
-        # img_matches = 0
-        # img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-        # rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
-        # # cv.imshow("a", qs_denoised[0])
-        # # cv.imshow("b", qs_denoised[1])
-        # cv.imshow("matches", rezised)
-        # cv.waitKey()
+    if SHOW_IMGS:
+        img_matches = 0
+        img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
+        rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
+        # cv.imshow("a", qs_denoised[0])
+        # cv.imshow("b", qs_denoised[1])
+        cv.imshow("matches", rezised)
+        cv.waitKey()
 
 
 main()
