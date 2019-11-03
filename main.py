@@ -129,10 +129,11 @@ def evaluate_matches(matches):
     return result / len(matches)
 
 
-def comparing_with_ground_truth(tops, txt_infos):
-    k = 10
+def comparing_with_ground_truth(tops, txt_infos, k):
+    utils.dump_pickle("result.pkl", tops)
     gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
-    mapAtK = metrics.mapk(gt, tops, k)
+    hypo = utils.get_pickle("result.pkl")
+    mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
     bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
@@ -150,6 +151,8 @@ def comparing_with_ground_truth(tops, txt_infos):
 
 
 def main():
+    #K parameter for map@k
+    k = 10
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
@@ -212,10 +215,17 @@ def main():
             p1 = [match[0] for match in matches_s_cl]
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             sorted_list = [p1]
-        tops.append([[matches.idx for matches in painting[0:10]] for painting in sorted_list])
-        dists.append([[matches.summed_dist for matches in painting[0:10]] for painting in sorted_list])
+        tops.append([[matches.idx for matches in painting[0:k]] for painting in sorted_list])
+        dists.append([[matches.summed_dist for matches in painting[0:k]] for painting in sorted_list])
 
-    comparing_with_ground_truth(tops, qs_txt_infos)
+    #Removing results with too big of a distance
+    for i, im in enumerate(tops):
+        for j, painting in enumerate(im):
+            #Distance threshold
+            if dists[i][j][0] > 35:
+                tops[i][j] = [-1]
+
+    comparing_with_ground_truth(tops, qs_txt_infos, k)
 
     if SHOW_IMGS:
         img_matches = 0
