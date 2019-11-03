@@ -133,11 +133,14 @@ def comparing_with_ground_truth(tops, txt_infos, k):
     utils.dump_pickle("result.pkl", tops)
     gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
     hypo = utils.get_pickle("result.pkl")
+    for i in range(len(hypo)):
+        if len(hypo[i]) is 2 :
+             hypo[i]=[hypo[i][0][0],hypo[i][1][0]]
     mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
     bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
-    bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
+    # bbs_predicted = [txt_info.boundingxy for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
