@@ -135,7 +135,9 @@ def comparing_with_ground_truth(tops, txt_infos, k):
     hypo = utils.get_pickle("result.pkl")
     for i in range(len(hypo)):
         if len(hypo[i]) is 2 :
-             hypo[i]=[hypo[i][0][0],hypo[i][1][0]]
+            hypo[i]=[hypo[i][0][0],hypo[i][1][0]]
+        else :
+            hypo[i]=hypo[i][0]
     mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
@@ -155,7 +157,7 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 
 def main():
     #K parameter for map@k
-    k = 10
+    k = 1
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
