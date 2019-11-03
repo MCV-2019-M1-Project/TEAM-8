@@ -44,22 +44,24 @@ def get_imgs(files_path, extension ="jpg"):
     paths = sorted(glob.glob(f"{files_path}/*." + extension))
     return [cv.imread(path) for path in tqdm(paths)]
 
-
-# TODO: Check if best option
-def denoise_imgs(img):
-    return cv.medianBlur(img, 3)
-
 def main():
     #K parameter for map@k
-    k = 3
+    k = 1
     # Get images and denoise query set.
-    print("Getting and denoising images...")
+    print("Reading images...")
     qs = get_imgs("datasets/qsd1_w4")
     db = get_imgs("datasets/DDBB")
-    qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
+    """ Denoising methods
+    "Gaussian"
+    "Median"
+    "bilateral"
+    "FastNl"
+    """
+    print("Denoising images...")
+    #qs_denoised = [utils.denoise_image(img, method="FastNl") for img in tqdm(qs)]
 
     #Separating paitings inside images to separate images
-    qs_split = [background_remover.remove_background(img) for img in qs_denoised]
+    qs_split = [background_remover.remove_background(img) for img in qs]
 
     print("\nComputing histograms...")
     hogs_qs = [[utils.get_hog_histogram(painting) for painting in img] for img in qs_split]
@@ -89,6 +91,7 @@ def main():
             current_im.append(utils.list_argsort(painting_dst)[:k])
         predictions.append(current_im)
 
+    #Remove nesting of lists
     hypo = []
     for im in predictions:
         current_im = []

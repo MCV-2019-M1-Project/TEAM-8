@@ -198,6 +198,7 @@ def main():
     dists = []
 
     # For all query images
+    dst_thr = 35
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
         matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
@@ -216,10 +217,10 @@ def main():
             p2_tops = [matches.idx for matches in p2[0:k]]
             p2_dists = [matches.summed_dist for matches in p2[0:k]]
             merged_tops = []
-            if p1_dists[0] > 35:
+            if p1_dists[0] > dst_thr:
                 p2_tops.insert(0, -1)
                 merged_tops = p2_tops
-            elif p2_dists[0] > 35:
+            elif p2_dists[0] > dst_thr:
                 p1_tops.insert(1, -1)
                 merged_tops = p1_tops
             else:
@@ -233,7 +234,7 @@ def main():
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             p1_tops = [matches.idx for matches in p1[0:k]]
             p1_dists = [matches.summed_dist for matches in p1[0:k]]
-            if p1_dists[0] > 35:
+            if p1_dists[0] > dst_thr:
                 p1_tops = [-1]
             tops.append(p1_tops)
             dists.append(p1_dists)
