@@ -211,19 +211,36 @@ def main():
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             p2 = sorted(p2, key=lambda x: x.summed_dist)
             sorted_list = [p1, p2]
+            p1_tops = [matches.idx for matches in p1[0:k]]
+            p1_dists = [matches.summed_dist for matches in p1[0:k]]
+            p2_tops = [matches.idx for matches in p2[0:k]]
+            p2_dists = [matches.summed_dist for matches in p2[0:k]]
+            merged_tops = []
+            if p1_dists[0] > 35:
+                p2_tops.insert(0, -1)
+                merged_tops = p2_tops
+            elif p2_dists[0] > 35:
+                p1_tops.insert(1, -1)
+                merged_tops = p1_tops
+            else:
+                for first_top, second_top in zip(p1_tops, p2_tops):
+                    merged_tops.append(first_top)
+                    merged_tops.append(second_top)
+            tops.append(merged_tops)
+            dists.append([p1_dists, p2_dists])
         else:
             p1 = [match[0] for match in matches_s_cl]
             p1 = sorted(p1, key=lambda x: x.summed_dist)
-            sorted_list = [p1]
-        tops.append([[matches.idx for matches in painting[0:k]] for painting in sorted_list])
-        dists.append([[matches.summed_dist for matches in painting[0:k]] for painting in sorted_list])
+            p1_tops = [matches.idx for matches in p1[0:k]]
+            p1_dists = [matches.summed_dist for matches in p1[0:k]]
+            if p1_dists[0] > 35:
+                p1_tops = [-1]
+            tops.append(p1_tops)
+            dists.append(p1_dists)
+
 
     #Removing results with too big of a distance
-    for i, im in enumerate(tops):
-        for j, painting in enumerate(im):
-            #Distance threshold
-            if dists[i][j][0] > 35:
-                tops[i][j] = [-1]
+
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
 
