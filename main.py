@@ -131,17 +131,17 @@ def evaluate_matches(matches):
 
 def comparing_with_ground_truth(tops, txt_infos, k):
     utils.dump_pickle("result.pkl", tops)
-    gt = utils.get_pickle("datasets/qst1_w4/gt_corresps.pkl")
+    gt = utils.get_pickle("datasets/qsd1_w5/gt_corresps.pkl")
     hypo = utils.get_pickle("result.pkl")
     mapAtK = metrics.mapk(gt, hypo, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
-    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qst1_w4/text_boxes.pkl")).squeeze()
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w5/text_boxes.pkl")).squeeze()
     bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
-    texts_gt = utils.get_gt_text("datasets/qst1_w4")
+    texts_gt = utils.get_gt_text("datasets/qsd1_w5")
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
     with open('results.txt', 'w') as f:
         for item in texts_predicted:
@@ -158,12 +158,24 @@ def main():
     k = 10
     # Get images and denoise query set.
     print("Getting and denoising images...")
-    qs = get_imgs("datasets/qst1_w4")
-    db = get_imgs("datasets/DDBB")
+    qs = get_imgs("datasets/qsd1_w5")
+    # db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
     #Separating paitings inside images to separate images
     qs_split = [background_remover.remove_background(img) for img in qs_denoised]
+
+    if SHOW_IMGS:
+        i=0
+        for img in tqdm(qs_split):
+            j=0
+            for painting in img:
+                s = cv.imwrite(r"outputs\0%d%d.jpg"%(i,j), painting)
+                # cv.imshow('image',painting)
+                cv.waitKey(0)
+                print(s)
+                j=j+1
+            i=i+1
     # Get masks without background and without text box of query sets.
     print("\nGetting text bounding box masks...")
     #Not needed since the above function already crops the background
@@ -201,7 +213,7 @@ def main():
     dists = []
 
     # For all query images
-    dst_thr = 35
+    dst_thr = 25
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
         matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
@@ -247,15 +259,5 @@ def main():
 
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
-
-    # if SHOW_IMGS:
-    #     img_matches = 0
-    #     img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)
-    #     rezised = cv.resize(img_matches,(int(img_matches.shape[1] * 50/100),int(img_matches.shape[0] * 50/100)))
-    #     # cv.imshow("a", qs_denoised[0])
-    #     # cv.imshow("b", qs_denoised[1])
-    #     cv.imshow("matches", rezised)
-    #     cv.waitKey()
-
 
 main()
