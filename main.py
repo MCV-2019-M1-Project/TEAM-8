@@ -131,6 +131,12 @@ def evaluate_matches(matches):
 
 def comparing_with_ground_truth(tops, txt_infos, k):
     utils.dump_pickle("result.pkl", tops)
+    texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
+    """for i, item in enumerate(texts_predicted):
+        with open('outputs/' + f'{i:05}' + '.txt', 'w') as f:
+            for text in item:
+                f.write("%s\n" % text)
+    """
     gt = utils.get_pickle("datasets/qsd1_w4/gt_corresps.pkl")
     hypo = utils.get_pickle("result.pkl")
     mapAtK = metrics.mapk(gt, hypo, k)
@@ -152,7 +158,7 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 
 def main():
     #K parameter for map@k
-    k = 10
+    k = 3
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w4")
@@ -198,7 +204,7 @@ def main():
     dists = []
 
     # For all query images
-    dst_thr = 35
+    dst_thr = 25
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
         matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
@@ -244,7 +250,7 @@ def main():
 
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
-
+    exit()
     if SHOW_IMGS:
         img_matches = 0
         img_matches = cv.drawMatches(qs_denoised[1], qs_kps[1], db[matches_s_cl[1].idx], db_kps[matches_s_cl[1].idx], matches_s[1], img_matches)

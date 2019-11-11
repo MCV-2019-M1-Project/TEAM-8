@@ -153,8 +153,9 @@ def dump_pickle(path, data):
 
 def compute_lev(gts, preds):
     result = 0
+    preds_string = [''.join(map(str, item))for item in preds]
     for x in range(len(preds)):
-        res = lev.distance(gts[x], preds[x])
+        res = lev.distance(gts[x], preds_string[x])
         if res != 0:
             print("  Lev distance at", x, ":", res)
         result += res
