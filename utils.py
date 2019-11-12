@@ -10,6 +10,8 @@ import Levenshtein as lev
 import glob
 from skimage import feature
 
+import background_remover
+
 
 def calc_similarities(measure, db, qs, show_progress=False):
     """
@@ -192,6 +194,7 @@ def denoise_image(img, method="Gaussian"):
     elif method == "FastNl":
         return cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
 
+
 def get_hog_histogram(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.resize(img, (256, 256))
@@ -203,6 +206,38 @@ def get_hog_histograms(imgs):
     hogs_imgs = [get_hog_histogram(imgs[x]) for x in tqdm(range(len(imgs)))]
     return hogs_imgs
 
+
 def list_argsort(seq):
     # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
     return sorted(range(len(seq)), key=seq.__getitem__)
+
+
+def get_preds_groundtruth(path):
+    """
+    Returns a list of lists from a specified pickle file
+    with the format needed to execute Map@k
+    list[[i]] contains the correct prediction for the i-th image
+    in the queryset
+    """
+    gt = get_pickle(path)
+    # Processing of GT file to get map@k correctly
+    return [[[painting] for painting in im] for im in gt]
+
+
+def split_image_recursive(img):
+    subimage_list = background_remover.split_image(img)
+    if len(subimage_list) == 1:
+        return subimage_list
+    else:
+        # We guess single image on the left
+        left = [subimage_list[0]]
+        for painting in background_remover.split_image(subimage_list[1]):
+            left.append(painting)
+        # We guess single image on the right
+        right = []
+        for painting in background_remover.split_image(subimage_list[0]):
+            right.append(painting)
+        right.append(subimage_list[1])
+        # We take the result with most paintings
+        return left if len(left) > len(right) else right
+

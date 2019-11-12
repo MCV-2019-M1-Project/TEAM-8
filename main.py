@@ -1,7 +1,5 @@
-import pickle
 import numpy as np
 import cv2 as cv
-import fire
 import ml_metrics as metrics
 from tqdm.auto import tqdm
 import glob
@@ -10,41 +8,10 @@ import utils
 import text_removal
 import background_remover
 
-# PRE-TASK -3:  Remove Noise.
-# PRE-TASK -2:  TODO Split images.
-# PRE-TASK -1:  TODO Mask background.
-# PRE-TASK 0:   Mask text bounding box.
-
-# TASK 1:       Detect keypoints and compute descriptors.
-#                       Step 1: Detection
-#                               Beto implemented ORB.
-#                               More possible variations:
-#                                       Harris Laplacian
-#                                       Difference of Gaussians (DoG or SIFT)
-#                                       ...
-#                       Step 2: Description
-#                               Beto implemented ORB.
-#                               More possible variations:
-#                                       Compare additionally with read text
-#                                       SIFT (PATENTED, requires an older version of openCV)
-#                                       SURF (PATENTED, requires an older version of openCV)
-#                                       HOG
-#                                       ...
-
-# TASK 2:       Find tentative matches based on similarity of local appearance and verify matches.
-#                       Beto implemented brute force based matching.
-#                       Beto implemented flann based matching.
-#               TODO Changing tops list to [-1] if image is not present in dataset
-
-# TASK 3:       Evaluate system on QSD1-W4, map@k.
-
-# TASK 4:       TODO Evaluate best system from W3 on QSD1-W4.
+SHOW_IMGS = False
 
 
-SHOW_IMGS = True
-
-
-def get_imgs(files_path, extension ="jpg"):
+def get_imgs(files_path, extension="jpg"):
     paths = sorted(glob.glob(f"{files_path}/*." + extension))
     return [cv.imread(path) for path in tqdm(paths)]
 
@@ -52,17 +19,6 @@ def get_imgs(files_path, extension ="jpg"):
 # TODO: Check if best option
 def denoise_imgs(img):
     return cv.medianBlur(img, 3)
-
-
-# TODO
-def split_imgs(img):
-    return [img]
-
-
-# TODO
-def get_mask_background(img):
-    mask = np.full((img.shape[0], img.shape[1]), 255, dtype="uint16")
-    return mask
 
 
 def get_text_bb_info(img):
@@ -130,24 +86,31 @@ def evaluate_matches(matches):
 
 
 def comparing_with_ground_truth(tops, txt_infos, k):
-    utils.dump_pickle("result.pkl", tops)
+    utils.dump_pickle("outputs/result.pkl", tops)
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
-    """for i, item in enumerate(texts_predicted):
+    for i, item in enumerate(texts_predicted):
         with open('outputs/' + f'{i:05}' + '.txt', 'w') as f:
             for text in item:
                 f.write("%s\n" % text)
-    """
-    gt = utils.get_pickle("datasets/qsd1_w5/gt_corresps.pkl")
-    hypo = utils.get_pickle("result.pkl")
-    mapAtK = metrics.mapk(gt, hypo, k)
+
+    gt = utils.get_preds_groundtruth("datasets/qsd1_w4/gt_corresps.pkl")
+    utils.dump_pickle("outputs/corresps.pkl", gt)
+    """for pred, gt_one in zip(tops, gt):
+        print("Prediction")
+        print(pred)
+        print("GT")
+        print(gt_one)
+        if pred != gt_one:
+            print("diff")"""
+    mapAtK = metrics.mapk(gt, tops, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
-    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w5/text_boxes.pkl")).squeeze()
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
     bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
-    texts_gt = utils.get_gt_text("datasets/qsd1_w5")
+    texts_gt = utils.get_gt_text("datasets/qsd1_w4")
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print(texts_predicted)
@@ -158,31 +121,33 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 
 def main():
     #K parameter for map@k
-    k = 10
+    k = 3
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w5")
-    # db = get_imgs("datasets/DDBB")
+    #db = get_imgs("datasets/DDBB")
     qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
 
-    #Separating paitings inside images to separate images
+    #Separating paintings inside images to separate images
+    #Images with 3 paintings
+    qs_split = [utils.split_image_recursive(qs_denoised[i]) for i in [7, 12, 18, 23]]
+    for i, image in enumerate(qs_split):
+        for j, painting in enumerate(image):
+            cv.imshow("Im: " + str(i) + " P: " + str(j), painting)
+            cv.waitKey()
+    exit()
     qs_split = [background_remover.remove_background(img) for img in qs_denoised]
 
     if SHOW_IMGS:
-        i=0
-        for img in tqdm(qs_split):
-            j=0
-            for painting in img:
-                s = cv.imwrite(r"outputs\0%d%d.jpg"%(i,j), painting)
-                # cv.imshow('image',painting)
+        for i, img in enumerate(tqdm(qs_split)):
+            for j, painting in enumerate(img):
+                #s = cv.imwrite(r"outputs\0%d%d.jpg"%(i,j), painting)
+                cv.imshow("I: " + str(i) + " P: " + str(j), cv.resize(painting, (256, 256)))
                 cv.waitKey(0)
-                print(s)
-                j=j+1
-            i=i+1
+                #print(s)
+
     # Get masks without background and without text box of query sets.
     print("\nGetting text bounding box masks...")
-    #Not needed since the above function already crops the background
-    #qs_bck_masks = [get_mask_background(img) for img in tqdm(qs_denoised)]
     qs_txt_infos = [[get_text_bb_info(painting) for painting in img] for img in tqdm(qs_split)]
     qs_txt_masks = [[single.mask for single in qs_txt_info] for qs_txt_info in qs_txt_infos]
 
@@ -229,23 +194,15 @@ def main():
             p2 = [match[1] for match in matches_s_cl]
             p1 = sorted(p1, key=lambda x: x.summed_dist)
             p2 = sorted(p2, key=lambda x: x.summed_dist)
-            sorted_list = [p1, p2]
             p1_tops = [matches.idx for matches in p1[0:k]]
             p1_dists = [matches.summed_dist for matches in p1[0:k]]
             p2_tops = [matches.idx for matches in p2[0:k]]
             p2_dists = [matches.summed_dist for matches in p2[0:k]]
-            merged_tops = []
             if p1_dists[0] > dst_thr:
-                p2_tops.insert(0, -1)
-                merged_tops = p2_tops
-            elif p2_dists[0] > dst_thr:
-                p1_tops.insert(1, -1)
-                merged_tops = p1_tops
-            else:
-                for first_top, second_top in zip(p1_tops, p2_tops):
-                    merged_tops.append(first_top)
-                    merged_tops.append(second_top)
-            tops.append(merged_tops)
+                p1_tops = [-1]
+            if p2_dists[0] > dst_thr:
+                p2_tops = [-1]
+            tops.append([p1_tops, p2_tops])
             dists.append([p1_dists, p2_dists])
         else:
             p1 = [match[0] for match in matches_s_cl]
@@ -254,13 +211,10 @@ def main():
             p1_dists = [matches.summed_dist for matches in p1[0:k]]
             if p1_dists[0] > dst_thr:
                 p1_tops = [-1]
-            tops.append(p1_tops)
+            tops.append([p1_tops])
             dists.append(p1_dists)
-
-
-    #Removing results with too big of a distance
-
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
 
 main()
+
