@@ -15,6 +15,10 @@ scipy = "*"
 ml-metrics = "*"
 tqdm = "*"
 fire = "*"
+matplotlib = "*"
+scikit-image = "*"
+python-levenshtein = "*"
+pytesseract = "*"
 
 [requires]
 python_version = "3.7"
