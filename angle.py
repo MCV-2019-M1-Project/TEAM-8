@@ -84,23 +84,35 @@ def get_angle(line):
     angle = np.rad2deg(np.arctan2(y2 - y1, x2 - x1))
     weight = euclidean((x1, y1), (x2, y2))
     angle = angle % 90
-    return int(angle), weight
+    return angle, weight
+
+
+def angle_diff(a, b, mod=90):
+    diff = abs(a - b)
+    return diff if diff < mod / 2 else mod - diff
 
 
 def get_horiz_angle(lines):
     weighted_angles = [get_angle(line[0]) for line in lines]
     possible = np.zeros(90)
     for a, w in weighted_angles:
-        possible[a] += w
+        possible[int(a)] += w
     possible = uniform_filter(possible, size=2)
-    final_angle = np.argmax(possible)
+    final_int_angle = np.argmax(possible)
 
+    weight_sum, final_angle = 0, 0
+    for a, w in weighted_angles:
+        if angle_diff(final_int_angle, a) < 2:
+            final_angle += (a if a < 45 else -(90 - a)) * w
+            weight_sum += w
+    final_angle = (final_angle / weight_sum) % 90
+    # print(f"{final_int_angle} {final_angle}")
     return final_angle
 
 
 def draw_horizontal_lines(cvimg, lines, horiz_angle):
     def is_close_to_horiz(line):
-        return abs(get_angle(line[0])[0] - horiz_angle) < 2
+        return angle_diff(get_angle(line[0])[0], horiz_angle) < 2
 
     lines = filter(is_close_to_horiz, lines)
 
@@ -142,13 +154,19 @@ def read_horizontal_image(path):
 
 if __name__ == "__main__":
     from utils import get_pickle
+    from tqdm.auto import tqdm
 
     GT = get_pickle("datasets/angles_qsd1w5_v2.pkl")
-    for i, path in enumerate(image_paths):
+    sum_err, elems = 0, 0
+    for i, path in enumerate(tqdm(image_paths)):
         img = cv2.imread(path)
         lines = get_all_lines(img)
         angle = get_horiz_angle(lines)
         gt_like_angle = get_GTFORMAT_angle(angle)
-        print(f"Detected: {gt_like_angle} Ground Truth: {GT[i]}")
+        for gt in GT[i]:
+            sum_err += angle_diff(gt, gt_like_angle, mod=180)
+            elems += 1
         show_img(draw_horizontal_lines(img, lines, angle))
         show_img(get_rotated(path, angle))
+
+    print(f"Average precision {sum_err / elems}")
