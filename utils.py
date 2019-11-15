@@ -307,7 +307,7 @@ def get_painting_mask(img, area_thr=0.08):
         else:
             break
     #Morphological operations to get rid of potential holes in the mask
-    final_mask = cv2.erode(cv2.dilate(base_mask, None, iterations=5), None, iterations=8)
+    final_mask = cv2.erode(cv2.dilate(base_mask, None, iterations=16), None, iterations=14)
     return final_mask
 
 

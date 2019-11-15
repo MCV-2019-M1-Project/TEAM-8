@@ -6,7 +6,7 @@ import glob
 
 import utils
 import text_removal
-import angle
+import angle as ag
 import background_remover
 
 SHOW_IMGS = False
@@ -117,19 +117,21 @@ def main():
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qst1_w5")
-    db = get_imgs("datasets/DDBB")
+    #db = get_imgs("datasets/DDBB")
+    #gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
     qs_denoised = [utils.denoise_image(img, "Median") for img in tqdm(qs)]
 
     print("Generating background masks")
-    #Stan's method
-    #img_lines = [angle.get_all_lines(img) for img in qs]
-    #angles = [angle.get_horiz_angle(lines) for lines in img_lines]
+    angles_opencv = [utils.get_median_angle(image_rects) for image_rects in frame_rectangles]
     bg_masks = [utils.get_painting_mask(img, 0.1) for img in tqdm(qs)]
     frame_rectangles = [utils.get_frames_from_mask(mask) for mask in bg_masks]
-    angles_opencv = [utils.get_median_angle(image_rects) for image_rects in frame_rectangles]
+    #Stan's method
+    img_lines = [ag.get_all_lines(img) for img in qs]
+    angles = [ag.get_horiz_angle(lines) for lines in img_lines]
+    corrected_angles = [ag.get_GTFORMAT_angle(single_angle) for single_angle in angles]
+    #Marc's method
     boxes = [[utils.get_box(rectangle) for rectangle in image] for image in frame_rectangles]
-    boxes_result = [[[angle, box] for box in image] for angle, image in zip(angles_opencv, boxes)]
-    #gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
+    boxes_result = [[[angle, box] for box in image] for angle, image in zip(corrected_angles, boxes)]
     print("Recovering subimages")
     qs_split = [utils.get_paintings_from_frames(img, rects) for img, rects in tqdm(zip(qs_denoised, frame_rectangles))]
 
@@ -176,7 +178,7 @@ def main():
     dists = []
 
     # For all query images
-    dst_thr = 30
+    dst_thr = 35
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
         matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
