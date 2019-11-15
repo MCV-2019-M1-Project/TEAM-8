@@ -122,7 +122,6 @@ def main():
     qs_denoised = [utils.denoise_image(img, "Median") for img in tqdm(qs)]
 
     print("Generating background masks")
-    angles_opencv = [utils.get_median_angle(image_rects) for image_rects in frame_rectangles]
     bg_masks = [utils.get_painting_mask(img, 0.1) for img in tqdm(qs)]
     frame_rectangles = [utils.get_frames_from_mask(mask) for mask in bg_masks]
     #Stan's method
@@ -130,6 +129,7 @@ def main():
     angles = [ag.get_horiz_angle(lines) for lines in img_lines]
     corrected_angles = [ag.get_GTFORMAT_angle(single_angle) for single_angle in angles]
     #Marc's method
+    angles_opencv = [utils.get_median_angle(image_rects) for image_rects in frame_rectangles]
     boxes = [[utils.get_box(rectangle) for rectangle in image] for image in frame_rectangles]
     boxes_result = [[[angle, box] for box in image] for angle, image in zip(corrected_angles, boxes)]
     print("Recovering subimages")
