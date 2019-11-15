@@ -45,7 +45,7 @@ def canberra(ls, rs):
 def intersection_over_union(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
     boxA = np.asarray(boxA).squeeze()
-    boxB = np.asarray(boxB[0]).squeeze()
+    boxB = np.asarray(boxB).squeeze()
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])

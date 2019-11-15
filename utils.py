@@ -348,11 +348,6 @@ def process_rectangles(rectangles):
         return sorted(rectangles, key=lambda x: x[0][1])
 
 
-
-
-
-
-
 def get_frames_from_mask(mask, area_thr = 0.03):
     img_area = mask.shape[0] * mask.shape[1]
     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -405,6 +400,5 @@ def get_paintings_from_frames(img, rects):
     return subimages
 
 
-
-
-
+def get_box(rectangle):
+    return cv2.boxPoints(rectangle).tolist()

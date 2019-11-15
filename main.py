@@ -123,11 +123,11 @@ def main():
     print("Generating background masks")
     bg_masks = [utils.get_painting_mask(img, 0.1) for img in tqdm(qs)]
     frame_rectangles = [utils.get_frames_from_mask(mask) for mask in bg_masks]
+    boxes = [[utils.get_box(rectangle) for rectangle in image] for image in frame_rectangles]
+    gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
+    only_boxes = [[painting[1] for painting in image] for image in gt_boxes]
     print("Recovering subimages")
     qs_split = [utils.get_paintings_from_frames(img, rects) for img, rects in tqdm(zip(qs_denoised, frame_rectangles))]
-
-    #Separating paintings inside images to separate images
-    #Images with 3 paintings: [7, 12, 18, 23]
 
     if SHOW_IMGS:
         for i, img in enumerate(tqdm(qs_split)):
@@ -172,7 +172,7 @@ def main():
     dists = []
 
     # For all query images
-    dst_thr = 25
+    dst_thr = 30
     for qs_dp in tqdm(qs_dps):
         # Get all descriptor matches between a query image and all database images.
         matches_s = [[match_descriptions(qs_single_painting_dp, db_dp) for qs_single_painting_dp in qs_dp] for db_dp in db_dps]
