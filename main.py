@@ -117,7 +117,7 @@ def main():
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qst1_w5")
-    #db = get_imgs("datasets/DDBB")
+    db = get_imgs("datasets/DDBB")
     #gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
     qs_denoised = [utils.denoise_image(img, "Median") for img in tqdm(qs)]
 
