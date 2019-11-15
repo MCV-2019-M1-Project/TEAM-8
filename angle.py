@@ -108,11 +108,23 @@ def draw_horizontal_lines(cvimg, lines, horiz_angle):
     return cvimg
 
 
-def get_rotated(path, horiz_angle):
+def get_rotation(horiz_angle):
     if horiz_angle > 45:
         rotation = -abs(90 - horiz_angle)
     else:
         rotation = horiz_angle
+    return rotation
+
+
+def get_GTFORMAT_angle(horiz_angle):
+    rotation = get_rotation(horiz_angle)
+    if rotation <= 0:
+        return -rotation
+    return 180 - rotation
+
+
+def get_rotated(path, horiz_angle):
+    rotation = get_rotation(horiz_angle)
 
     img = Image.open(path)
     r, g, b = img.split()
@@ -128,10 +140,15 @@ def read_horizontal_image(path):
     return get_rotated(path, angle)
 
 
-if __name__ == '__main__':
-    for path in image_paths:
+if __name__ == "__main__":
+    from utils import get_pickle
+
+    GT = get_pickle("datasets/angles_qsd1w5_v2.pkl")
+    for i, path in enumerate(image_paths):
         img = cv2.imread(path)
         lines = get_all_lines(img)
         angle = get_horiz_angle(lines)
+        gt_like_angle = get_GTFORMAT_angle(angle)
+        print(f"Detected: {gt_like_angle} Ground Truth: {GT[i]}")
         show_img(draw_horizontal_lines(img, lines, angle))
         show_img(get_rotated(path, angle))
