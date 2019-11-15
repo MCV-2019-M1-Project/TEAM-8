@@ -6,6 +6,7 @@ import glob
 
 import utils
 import text_removal
+import angle
 import background_remover
 
 SHOW_IMGS = False
@@ -85,7 +86,6 @@ def evaluate_matches(matches):
 
 
 def comparing_with_ground_truth(tops, txt_infos, k):
-    utils.dump_pickle("outputs/result.pkl", tops)
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
     for i, item in enumerate(texts_predicted):
         with open('outputs/' + f'{i:05}' + '.txt', 'w') as f:
@@ -116,16 +116,20 @@ def main():
 
     # Get images and denoise query set.
     print("Getting and denoising images...")
-    qs = get_imgs("datasets/qsd1_w5")
+    qs = get_imgs("datasets/qst1_w5")
     db = get_imgs("datasets/DDBB")
     qs_denoised = [utils.denoise_image(img, "Median") for img in tqdm(qs)]
 
     print("Generating background masks")
+    #Stan's method
+    #img_lines = [angle.get_all_lines(img) for img in qs]
+    #angles = [angle.get_horiz_angle(lines) for lines in img_lines]
     bg_masks = [utils.get_painting_mask(img, 0.1) for img in tqdm(qs)]
     frame_rectangles = [utils.get_frames_from_mask(mask) for mask in bg_masks]
+    angles_opencv = [utils.get_median_angle(image_rects) for image_rects in frame_rectangles]
     boxes = [[utils.get_box(rectangle) for rectangle in image] for image in frame_rectangles]
-    gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
-    only_boxes = [[painting[1] for painting in image] for image in gt_boxes]
+    boxes_result = [[[angle, box] for box in image] for angle, image in zip(angles_opencv, boxes)]
+    #gt_boxes = utils.get_pickle("datasets/qsd1_w5/frames.pkl")
     print("Recovering subimages")
     qs_split = [utils.get_paintings_from_frames(img, rects) for img, rects in tqdm(zip(qs_denoised, frame_rectangles))]
 
@@ -184,6 +188,9 @@ def main():
         tops.append(partial_tops)
         dists.append(partial_dists)
 
+    utils.dump_pickle("outputs/frames.pkl", boxes_result)
+    utils.dump_pickle("outputs/result.pkl", tops)
+    exit()
     comparing_with_ground_truth(tops, qs_txt_infos, k)
 
 

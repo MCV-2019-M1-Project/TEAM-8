@@ -15,6 +15,7 @@ scipy = "*"
 ml-metrics = "*"
 tqdm = "*"
 fire = "*"
+pillow = "*"
 
 [requires]
 python_version = "3.7"

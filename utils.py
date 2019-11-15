@@ -402,3 +402,17 @@ def get_paintings_from_frames(img, rects):
 
 def get_box(rectangle):
     return cv2.boxPoints(rectangle).tolist()
+
+
+def correct_angle(angle):
+    if 0.0 >= angle > -45.0:
+        return angle * -1.0
+    elif angle < -45.0:
+        return angle * -1.0 + 90.0
+
+
+def get_median_angle(rects):
+    angles = [rect[2] for rect in rects]
+    angles = np.array(angles)
+    return correct_angle(np.median(angles))
+
