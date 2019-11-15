@@ -260,6 +260,16 @@ def get_tops_from_matches(qs_dp, matches_s_cl, dst_thr, k):
 list_depth = lambda L: isinstance(L, list) and max(map(list_depth, L))+1
 
 
+def add_list_level(input_list):
+    out = []
+    for ll in input_list:
+        tmp = []
+        for q in ll:
+            tmp.append([q])
+        out.append(tmp)
+    return (out)
+
+
 def compute_mapk(gt, hypo, k_val):
 
     hypo = list(hypo)
