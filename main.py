@@ -112,7 +112,7 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 
 def main():
     #K parameter for map@k
-    k = 3
+    k = 10
 
     # Get images and denoise query set.
     print("Getting and denoising images...")
