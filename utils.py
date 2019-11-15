@@ -2,7 +2,9 @@ import pickle
 
 import cv2
 import numpy as np
+from ml_metrics import apk
 from tqdm.auto import tqdm
+import math
 
 from mask_metrics import MaskMetrics
 import distance as dist
@@ -212,18 +214,6 @@ def list_argsort(seq):
     return sorted(range(len(seq)), key=seq.__getitem__)
 
 
-def get_preds_groundtruth(path):
-    """
-    Returns a list of lists from a specified pickle file
-    with the format needed to execute Map@k
-    list[[i]] contains the correct prediction for the i-th image
-    in the queryset
-    """
-    gt = get_pickle(path)
-    # Processing of GT file to get map@k correctly
-    return [[[painting] for painting in im] for im in gt]
-
-
 def split_image_recursive(img):
     subimage_list = background_remover.split_image(img)
     if len(subimage_list) == 1:
@@ -240,4 +230,171 @@ def split_image_recursive(img):
         right.append(subimage_list[1])
         # We take the result with most paintings
         return left if len(left) > len(right) else right
+
+
+def get_tops_from_matches(qs_dp, matches_s_cl, dst_thr, k):
+    if len(qs_dp) > 1:
+        p1 = [match[0] for match in matches_s_cl]
+        p2 = [match[1] for match in matches_s_cl]
+        p1 = sorted(p1, key=lambda x: x.summed_dist)
+        p2 = sorted(p2, key=lambda x: x.summed_dist)
+        p1_tops = [matches.idx for matches in p1[0:k]]
+        p1_dists = [matches.summed_dist for matches in p1[0:k]]
+        p2_tops = [matches.idx for matches in p2[0:k]]
+        p2_dists = [matches.summed_dist for matches in p2[0:k]]
+        if p1_dists[0] > dst_thr:
+            p1_tops = [-1]
+        if p2_dists[0] > dst_thr:
+            p2_tops = [-1]
+        return [p1_tops, p2_tops], [p1_dists, p2_dists]
+    else:
+        p1 = [match[0] for match in matches_s_cl]
+        p1 = sorted(p1, key=lambda x: x.summed_dist)
+        p1_tops = [matches.idx for matches in p1[0:k]]
+        p1_dists = [matches.summed_dist for matches in p1[0:k]]
+        if p1_dists[0] > dst_thr:
+            p1_tops = [-1]
+        return [p1_tops], p1_dists
+
+
+list_depth = lambda L: isinstance(L, list) and max(map(list_depth, L))+1
+
+
+def compute_mapk(gt, hypo, k_val):
+
+    hypo = list(hypo)
+    if list_depth(hypo) == 2:
+        hypo = add_list_level(hypo.copy())
+
+    apk_list = []
+    for ii, query in enumerate(gt):
+        for jj, sq in enumerate(query):
+            apk_val = 0.0
+            if len(hypo[ii]) > jj:
+                apk_val = apk([sq], hypo[ii][jj], k_val)
+            apk_list.append(apk_val)
+
+    return np.mean(apk_list)
+
+
+def get_painting_mask(img, area_thr=0.08):
+    #Blur to get rid of soft edges
+    blurred = cv2.medianBlur(cv2.medianBlur(img, 9), 9)
+    #Get edges with canny and dilate
+    ratio = 4
+    canny = cv2.Canny(blurred, 12, 12*ratio)
+    canny = cv2.dilate(canny, None, iterations=5)
+    #Get contours and area of contours in canny image
+    contours, _ = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours_with_area = [[contour, cv2.contourArea(contour)] for contour in contours]
+    sorted_contours = sorted(contours_with_area, key=lambda x: x[1], reverse=True)
+    base_mask = np.zeros_like(canny)
+    #We generate a new image formed only by the contours that are at least area_thr of the size of the largest contour
+    largest_area = sorted_contours[0][1]
+    for contour in sorted_contours:
+        if contour[1] >= largest_area * area_thr:
+            cv2.fillConvexPoly(base_mask, contour[0], [256, 256, 256])
+        else:
+            break
+    #Morphological operations to get rid of potential holes in the mask
+    final_mask = cv2.erode(cv2.dilate(base_mask, None, iterations=5), None, iterations=8)
+    return final_mask
+
+
+def are_paintings_horizontal(rectangles):
+    if len(rectangles) == 1:
+        return True
+    min_points = []
+    max_points = []
+    centers = []
+    for rectangle in rectangles:
+        center = rectangle[0]
+        box = cv2.boxPoints(rectangle)
+        box = np.int0(box)
+        min_left = math.inf
+        max_left = 0
+        for point in box:
+            if point[0] <= min_left:
+                min_left = point[0]
+            if point[0] >= max_left:
+                max_left = point[0]
+        min_points.append(min_left)
+        max_points.append(max_left)
+        centers.append(center)
+    min_points, max_points, centers = zip(*sorted(zip(min_points, max_points, centers)))
+    for i in range(1, len(rectangles)):
+        if centers[i][0] <= max_points[i-1]:
+            return False
+    return True
+
+
+def process_rectangles(rectangles):
+    if len(rectangles) == 1:
+        return rectangles
+    horizontal = are_paintings_horizontal(rectangles)
+    if horizontal:
+        return sorted(rectangles, key=lambda x: x[0][0])
+    else:
+        return sorted(rectangles, key=lambda x: x[0][1])
+
+
+
+
+
+
+
+def get_frames_from_mask(mask, area_thr = 0.03):
+    img_area = mask.shape[0] * mask.shape[1]
+    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour_points = contours[0]
+    rects = []
+    for contour in contour_points:
+        rect = cv2.minAreaRect(contour)
+        box_area = rect[1][0] * rect[1][1]
+        #We discard potential false positives
+        if box_area > img_area * area_thr:
+            rects.append(rect)
+
+    return process_rectangles(rects)
+
+
+def get_paintings_from_frames(img, rects):
+    subimages = []
+    for rect in rects:
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+
+        width = int(rect[1][0])
+        height = int(rect[1][1])
+
+        src_pts = box.astype("float32")
+        # corrdinate of the points in box points after the rectangle has been
+        # straightened
+        dst_pts = np.array([[0, height - 1],
+                            [0, 0],
+                            [width - 1, 0],
+                            [width - 1, height - 1]], dtype="float32")
+
+        # the perspective transformation matrix
+        M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+
+        # directly warp the rotated rectangle to get the straightened rectangle
+        subimage = cv2.warpPerspective(img, M, (width, height))
+
+        angle = rect[2]
+
+        if 0.0 >= angle > -45.0:
+            angle = angle * -1.0
+        elif angle < -45.0:
+            angle = angle * -1.0 + 90.0
+
+        if angle > 90:
+            subimage = np.rot90(subimage)
+
+        subimages.append(subimage)
+    return subimages
+
+
+
+
 

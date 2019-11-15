@@ -10,7 +10,6 @@ import background_remover
 
 SHOW_IMGS = False
 
-
 def get_imgs(files_path, extension="jpg"):
     paths = sorted(glob.glob(f"{files_path}/*." + extension))
     return [cv.imread(path) for path in tqdm(paths)]
@@ -93,24 +92,16 @@ def comparing_with_ground_truth(tops, txt_infos, k):
             for text in item:
                 f.write("%s\n" % text)
 
-    gt = utils.get_preds_groundtruth("datasets/qsd1_w4/gt_corresps.pkl")
-    utils.dump_pickle("outputs/corresps.pkl", gt)
-    """for pred, gt_one in zip(tops, gt):
-        print("Prediction")
-        print(pred)
-        print("GT")
-        print(gt_one)
-        if pred != gt_one:
-            print("diff")"""
-    mapAtK = metrics.mapk(gt, tops, k)
+    gt = utils.get_pickle("datasets/qsd1_w5/gt_corresps.pkl")
+    mapAtK = utils.compute_mapk(gt, tops, k)
     print("\nMap@ " + str(k) + " is " + str(mapAtK))
 
-    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w4/text_boxes.pkl")).squeeze()
+    bbs_gt = np.asarray(utils.get_groundtruth("datasets/qsd1_w5/text_boxes.pkl")).squeeze()
     bbs_predicted = [[painting.boundingxy for painting in txt_info] for txt_info in txt_infos]
     mean_iou = utils.get_mean_IoU(bbs_gt, bbs_predicted)
     print("Mean Intersection over Union: ", mean_iou)
 
-    texts_gt = utils.get_gt_text("datasets/qsd1_w4")
+    texts_gt = utils.get_gt_text("datasets/qsd1_w5")
     texts_predicted = [[painting.text for painting in txt_info] for txt_info in txt_infos]
     mean_lev = utils.compute_lev(texts_gt, texts_predicted)
     print(texts_predicted)
@@ -122,21 +113,21 @@ def comparing_with_ground_truth(tops, txt_infos, k):
 def main():
     #K parameter for map@k
     k = 3
+
     # Get images and denoise query set.
     print("Getting and denoising images...")
     qs = get_imgs("datasets/qsd1_w5")
-    #db = get_imgs("datasets/DDBB")
-    qs_denoised = [denoise_imgs(img) for img in tqdm(qs)]
+    db = get_imgs("datasets/DDBB")
+    qs_denoised = [utils.denoise_image(img, "Median") for img in tqdm(qs)]
+
+    print("Generating background masks")
+    bg_masks = [utils.get_painting_mask(img, 0.1) for img in tqdm(qs)]
+    frame_rectangles = [utils.get_frames_from_mask(mask) for mask in bg_masks]
+    print("Recovering subimages")
+    qs_split = [utils.get_paintings_from_frames(img, rects) for img, rects in tqdm(zip(qs_denoised, frame_rectangles))]
 
     #Separating paintings inside images to separate images
-    #Images with 3 paintings
-    qs_split = [utils.split_image_recursive(qs_denoised[i]) for i in [7, 12, 18, 23]]
-    for i, image in enumerate(qs_split):
-        for j, painting in enumerate(image):
-            cv.imshow("Im: " + str(i) + " P: " + str(j), painting)
-            cv.waitKey()
-    exit()
-    qs_split = [background_remover.remove_background(img) for img in qs_denoised]
+    #Images with 3 paintings: [7, 12, 18, 23]
 
     if SHOW_IMGS:
         for i, img in enumerate(tqdm(qs_split)):
@@ -189,32 +180,12 @@ def main():
         matches_s_ev = [[evaluate_matches(painting_match) for painting_match in match] for match in matches_s]
         # Sort for lowest
         matches_s_cl = [[Match(painting_summed_dist, idx) for painting_summed_dist in summed_dist] for idx, summed_dist in enumerate(matches_s_ev)]
-        if len(qs_dp) > 1:
-            p1 = [match[0] for match in matches_s_cl]
-            p2 = [match[1] for match in matches_s_cl]
-            p1 = sorted(p1, key=lambda x: x.summed_dist)
-            p2 = sorted(p2, key=lambda x: x.summed_dist)
-            p1_tops = [matches.idx for matches in p1[0:k]]
-            p1_dists = [matches.summed_dist for matches in p1[0:k]]
-            p2_tops = [matches.idx for matches in p2[0:k]]
-            p2_dists = [matches.summed_dist for matches in p2[0:k]]
-            if p1_dists[0] > dst_thr:
-                p1_tops = [-1]
-            if p2_dists[0] > dst_thr:
-                p2_tops = [-1]
-            tops.append([p1_tops, p2_tops])
-            dists.append([p1_dists, p2_dists])
-        else:
-            p1 = [match[0] for match in matches_s_cl]
-            p1 = sorted(p1, key=lambda x: x.summed_dist)
-            p1_tops = [matches.idx for matches in p1[0:k]]
-            p1_dists = [matches.summed_dist for matches in p1[0:k]]
-            if p1_dists[0] > dst_thr:
-                p1_tops = [-1]
-            tops.append([p1_tops])
-            dists.append(p1_dists)
+        partial_tops, partial_dists = utils.get_tops_from_matches(qs_dp, matches_s_cl, dst_thr, k)
+        tops.append(partial_tops)
+        dists.append(partial_dists)
 
     comparing_with_ground_truth(tops, qs_txt_infos, k)
+
 
 main()
 
