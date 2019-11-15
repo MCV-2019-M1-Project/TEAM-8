@@ -139,6 +139,26 @@ def remove_background(image, height_ratio=10, distance_between_peaks=10, single_
                                      height_ratio, distance_between_peaks)[0]
         ]
 
+def split_image(image, height_ratio=10, distance_between_peaks=10, single_sure=False):
+    """
+    Receives an image and returns a list with the images that are found on it
+
+    Arguments:
+        - image : an opencv image
+    Returns:
+        list_of_paintings: list of images found in the image, in order.
+                           Left to right or top to bottom (currently not supported).
+    """
+
+    middle_h = None if single_sure else get_partition_horizontal(image)
+    if middle_h is None:
+        return [image]
+    else:
+        return [
+            image[:, :middle_h, :],
+            image[:, middle_h:, :]
+        ]
+
 
 def get_mask(image, height_ratio=10, distance_between_peaks=10, single_sure=False):
     """
